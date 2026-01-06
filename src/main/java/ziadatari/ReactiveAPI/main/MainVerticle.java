@@ -1,94 +1,58 @@
 package ziadatari.ReactiveAPI.main;
 
 import io.vertx.core.AbstractVerticle;
+import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Promise;
-import io.vertx.core.json.JsonArray;
+import io.vertx.core.http.HttpServer;
 import io.vertx.core.json.JsonObject;
-import io.vertx.ext.web.Router;
-import io.vertx.ext.web.RoutingContext;
-import io.vertx.ext.web.handler.BodyHandler;
-import io.vertx.mysqlclient.MySQLConnectOptions;
-import io.vertx.mysqlclient.MySQLPool;
-import io.vertx.sqlclient.PoolOptions;
-import io.vertx.sqlclient.Row;
-import io.vertx.sqlclient.RowSet;
+import ziadatari.ReactiveAPI.web.HttpVerticle;
 
 public class MainVerticle extends AbstractVerticle {
 
-  private MySQLPool client;
-
   @Override
   public void start(Promise<Void> startPromise) {
-    // 1. Configure Database
-    MySQLConnectOptions connectOptions = new MySQLConnectOptions()
-      .setPort(3306)
-      .setHost("localhost")
-      .setDatabase("testdb")
-      .setUser("root")
-      .setPassword("password");
 
-    PoolOptions poolOptions = new PoolOptions().setMaxSize(5);
-    client = MySQLPool.pool(vertx, connectOptions, poolOptions);
+    // DB password handler
+    String dbPassword = System.getenv("DB_PASSWORD");
+    if (dbPassword == null || dbPassword.isEmpty()) {
+      System.out.println("DB_PASSWORD IS NULL");
+      dbPassword = "secret";
+    }
 
-    // 2. Create Router
-    Router router = Router.router(vertx);
+    // Config
+    // Hardcoded for testing purposes
+    JsonObject dbconfig = new JsonObject()
+      .put("host", "localhost")
+      .put("port", 3306)
+      .put("database", "payroll_db")
+      .put("user", "root")
+      .put("password", dbPassword);
 
-    // Essential for reading JSON bodies in POST requests
-    router.route().handler(BodyHandler.create());
+    JsonObject appConfig = new JsonObject()
+      .put("http.port", 8888)
+      .put("url", "http://localhost:8888")
+      .put("db", dbconfig);
 
-    // 3. Define Routes (The API endpoints)
-    router.get("/api/users").handler(this::getAllUsers);
-    router.post("/api/users").handler(this::createUser);
+    //DeploymentOptions allows passing config to child verticle
+    DeploymentOptions options = new DeploymentOptions().setConfig(appConfig);
 
-    // 4. Start Server
-    vertx.createHttpServer()
-      .requestHandler(router)
-      .listen(8888, http -> {
-        if (http.succeeded()) {
-          startPromise.complete();
-          System.out.println("HTTP server started on port 8888");
-        } else {
-          startPromise.fail(http.cause());
-        }
+    // Deployment
+    // deploying httpverticle that is async
+    vertx.deployVerticle(HttpVerticle.class.getName(), options)
+      .onSuccess(id -> {
+        System.out.println("------------------------------------------------------------");
+        System.out.println("APPLICATION STARTED SUCCESSFULLY");
+        System.out.println("Deployment ID: " + id);
+        System.out.println("REST API URL: " + appConfig.getString("url"));
+        System.out.println("------------------------------------------------------------");
+        startPromise.complete();
+      })
+      .onFailure(err -> {
+        // Failure
+        // if server fails to bind, faile whole program
+        System.err.println("Failed to deploy verticle: " + err.getMessage());
+        startPromise.fail(err);
       });
-  }
 
-  // --- Handlers (The Logic) ---
-
-  private void getAllUsers(RoutingContext ctx) {
-    // Reactive SQL query
-    client
-      .query("SELECT * FROM users")
-      .execute(ar -> {
-        if (ar.succeeded()) {
-          RowSet<Row> result = ar.result();
-          JsonArray response = new JsonArray();
-          for (Row row : result) {
-            response.add(new JsonObject()
-              .put("id", row.getInteger("id"))
-              .put("username", row.getString("username")));
-          }
-          ctx.json(response); // Automatically sends 200 OK + JSON
-        } else {
-          System.out.println("Failure: " + ar.cause().getMessage());
-          ctx.fail(500);
-        }
-      });
-  }
-
-  private void createUser(RoutingContext ctx) {
-    JsonObject body = ctx.body().asJsonObject();
-    String username = body.getString("username");
-
-    // Prepared statement to prevent SQL injection
-    client
-      .preparedQuery("INSERT INTO users (username) VALUES (?)")
-      .execute(io.vertx.sqlclient.Tuple.of(username), ar -> {
-        if (ar.succeeded()) {
-          ctx.response().setStatusCode(201).end("Created");
-        } else {
-          ctx.fail(500);
-        }
-      });
   }
 }
