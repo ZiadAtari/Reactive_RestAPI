@@ -20,7 +20,6 @@ public class MainVerticle extends AbstractVerticle {
     }
 
     // Config
-    // Hardcoded for testing purposes
     JsonObject dbconfig = new JsonObject()
       .put("host", "localhost")
       .put("port", 3306)

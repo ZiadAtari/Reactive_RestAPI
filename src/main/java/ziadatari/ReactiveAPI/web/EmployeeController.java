@@ -17,6 +17,7 @@ public class EmployeeController {
     this.service = service;
   }
 
+
   public void getAll(RoutingContext ctx) {
     service.getAllEmployees() // returns a promise
       .onSuccess(list -> { // Callback

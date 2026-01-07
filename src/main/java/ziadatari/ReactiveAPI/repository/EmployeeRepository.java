@@ -22,7 +22,7 @@ public class EmployeeRepository {
 
   // GET /employees
   public Future<List<EmployeeDTO>> findAll() {
-    return client.query("SELECT * FROM employees")
+    return client.query("SELECT * FROM employees WHERE active = true")
       .execute()
       .map(this::mapRowSetToDTOs);
   }
@@ -48,7 +48,7 @@ public class EmployeeRepository {
 
   // DELETE /employees/:id
   public Future<Boolean> delete(String id) {
-    return client.preparedQuery("DELETE FROM employees WHERE id = ?")
+    return client.preparedQuery("UPDATE employees SET active = false WHERE id = ?")
       .execute(Tuple.of(id))
       .map(row -> row.rowCount() > 0);
   }
@@ -62,7 +62,8 @@ public class EmployeeRepository {
         row.getString("id"),
         row.getString("name"),
         row.getString("department"),
-        row.getDouble("salary")
+        row.getDouble("salary"),
+        row.getBoolean("active")
       ));
     }
     return result;

@@ -10,16 +10,20 @@ public class EmployeeDTO {
   private String name;
   private String department;
   private Double salary;
+  private Boolean active;
 
-  // Empty Constructor for serialization libraries
-  public EmployeeDTO () {}
+  // Constructor for serialization libraries
+  public EmployeeDTO () {
+    this.active = true;
+  }
 
   // Full constructor for service layer
-  public  EmployeeDTO (String id, String name, String department, Double salary) {
+  public  EmployeeDTO (String id, String name, String department, Double salary, Boolean active) {
     this.id = id;
     this.name = name;
     this.department = department;
     this.salary = salary;
+    this.active = (active != null) ? active : true;
   }
 
   // Helper to convert object to Vert.x JSON
@@ -28,7 +32,8 @@ public class EmployeeDTO {
       .put("id", id)
       .put("name", name)
       .put("department", department)
-      .put("salary", salary);
+      .put("salary", salary)
+      .put("active", active);
 
   }
 
@@ -38,7 +43,8 @@ public class EmployeeDTO {
       json.getString("id"),
       json.getString("name"),
       json.getString("department"),
-      json.getDouble("salary")
+      json.getDouble("salary"),
+      json.getBoolean("active", true) // defaults to true
     );
   }
   //Getters and Setters
@@ -63,9 +69,9 @@ public class EmployeeDTO {
   public Double getSalary() {
     return salary;
   }
-  public void setSalary(Double salary) {
-    this.salary = salary;
-  }
+  public void setSalary(Double salary) {this.salary = salary;}
+  public Boolean isActive() {return active;}
+  public void setActive(Boolean active) {this.active = active;}
 }
 
 
