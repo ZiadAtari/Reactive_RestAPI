@@ -2,9 +2,12 @@ package ziadatari.ReactiveAPI.web;
 
 import io.vertx.ext.web.RoutingContext;
 import ziadatari.ReactiveAPI.dto.EmployeeDTO;
+import ziadatari.ReactiveAPI.exception.GlobalErrorHandler;
 import ziadatari.ReactiveAPI.service.EmployeeService;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
+
+import java.time.Instant;
 
 // Handles parsing HTTP requests and calling service
 
@@ -19,71 +22,77 @@ public class EmployeeController {
 
 
   public void getAll(RoutingContext ctx) {
-    service.getAllEmployees() // returns a promise
-      .onSuccess(list -> { // Callback
+    service.getAllEmployees()
+      .onSuccess(list -> {
         JsonArray response = new JsonArray();
         list.forEach(dto -> response.add(dto.toJson()));
         ctx.json(response);
       })
-      .onFailure(err -> ctx.fail(500, err));
+      .onFailure(err -> GlobalErrorHandler.handle(ctx, err)); // Centralized
   }
 
   public void create(RoutingContext ctx) {
     try {
+      // If body is empty or malformed, asJsonObject() might throw DecodeException
+      // createEmployee() might throw ServiceException (Validation)
       JsonObject body = ctx.body().asJsonObject();
+      System.out.println("Received Payload: " + body.encodePrettily());
       EmployeeDTO dto = EmployeeDTO.fromJson(body);
+      System.out.println("Parsed DTO Name: " + dto.getName());
 
       service.createEmployee(dto)
-        .onSuccess(v -> ctx.response().setStatusCode(201).end("created"))
-        .onFailure(err -> {
-          if (err.getMessage().contains("required")) {
-            ctx.fail(400, err);
-          }
-          else {
-            ctx.fail(500, err);
-          }
-        });
+        .onSuccess(v -> {
+          sendResponse(ctx, 201, "CREATE", dto.getId(), dto.getName());
+        })
+        .onFailure(err -> GlobalErrorHandler.handle(ctx, err));
+
     } catch (Exception e) {
-      ctx.fail(400, e);
+      GlobalErrorHandler.handle(ctx, e);
     }
   }
 
   public void update(RoutingContext ctx) {
     String id = ctx.pathParam("id");
-    System.out.println("Update Request received for ID: " + id); // DEBUG LOG 1
 
-    JsonObject body = ctx.body().asJsonObject();
-    System.out.println("Payload: " + body.encode()); // DEBUG LOG 2
+    try {
+      JsonObject body = ctx.body().asJsonObject();
+      EmployeeDTO dto = EmployeeDTO.fromJson(body);
 
-    EmployeeDTO dto = EmployeeDTO.fromJson(body);
+      service.updateEmployee(id, dto)
+        .onSuccess(found -> {
+          sendResponse(ctx, 200, "UPDATE", id, dto.getName());
+        }) // Service handles 404 now
+        .onFailure(err -> GlobalErrorHandler.handle(ctx, err));
 
-    service.updateEmployee(id, dto)
-      .onSuccess(found -> {
-        if (found) {
-          System.out.println("Update Successful!");
-          ctx.response().end("Updated");
-        } else {
-          // This is the likely culprit
-          System.out.println("Update Failed: ID exists in URL but NOT in Database.");
-          ctx.response().setStatusCode(404).end("ID Not Found");
-        }
-      })
-      .onFailure(err -> {
-        // This catches SQL errors or logic crashes
-        System.err.println("CRASH in Update Method:");
-        err.printStackTrace();
-        ctx.fail(500, err);
-      });
+    } catch (Exception e) {
+      GlobalErrorHandler.handle(ctx, e);
+    }
   }
 
   public void delete(RoutingContext ctx) {
     String id = ctx.pathParam("id");
+
     service.deleteEmployee(id)
       .onSuccess(found -> {
-        if (found) ctx.response().setStatusCode(204).end();
-        else ctx.fail(404);
+        // No name for delete ONLY
+        sendResponse(ctx, 200, "DELETE", id, "N/A");
       })
-      .onFailure(err -> ctx.fail(500, err));
+      .onFailure(err -> GlobalErrorHandler.handle(ctx, err));
+  }
+
+  // Helper for Response
+  private void sendResponse(RoutingContext ctx, int statusCode, String operation, String id, String name) {
+    JsonObject response = new JsonObject()
+      .put("Operation", operation)
+      .put("Status", "SUCCESS")
+      .put("Affected ID", id)
+      .put("Affected Name", name)
+      .put("Time", Instant.now().toString());
+
+    ctx.response()
+      .setStatusCode(statusCode)
+      .putHeader("content-type", "application/json")
+      .end(response.encodePrettily());
   }
 
 }
