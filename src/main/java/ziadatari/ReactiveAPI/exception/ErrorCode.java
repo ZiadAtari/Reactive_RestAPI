@@ -20,6 +20,7 @@ public enum ErrorCode {
   MISSING_SALARY(400, "VAL_002", "Employee salary is required."),
   NEGATIVE_SALARY(400, "VAL_003", "Salary cannot be negative."),
   INVALID_DEPARTMENT(400, "VAL_004", "Department name is invalid."),
+  DUPLICATE_EMPLOYEE(409, "EMP_003", "Active employee already exists with this name and department."),
 
   // --- INPUT / JSON ERRORS ---
   INVALID_JSON_FORMAT(400, "REQ_001", "Request body contains invalid JSON."),

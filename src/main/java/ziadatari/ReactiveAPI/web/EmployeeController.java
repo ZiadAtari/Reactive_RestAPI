@@ -33,16 +33,12 @@ public class EmployeeController {
 
   public void create(RoutingContext ctx) {
     try {
-      // If body is empty or malformed, asJsonObject() might throw DecodeException
-      // createEmployee() might throw ServiceException (Validation)
       JsonObject body = ctx.body().asJsonObject();
-      System.out.println("Received Payload: " + body.encodePrettily());
       EmployeeDTO dto = EmployeeDTO.fromJson(body);
-      System.out.println("Parsed DTO Name: " + dto.getName());
 
       service.createEmployee(dto)
-        .onSuccess(v -> {
-          sendResponse(ctx, 201, "CREATE", dto.getId(), dto.getName());
+        .onSuccess(savedDto -> {
+          sendResponse(ctx, 201, "CREATE", savedDto.getId(), savedDto.getName());
         })
         .onFailure(err -> GlobalErrorHandler.handle(ctx, err));
 
