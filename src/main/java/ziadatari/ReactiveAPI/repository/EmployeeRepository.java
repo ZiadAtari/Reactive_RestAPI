@@ -53,6 +53,23 @@ public class EmployeeRepository {
       .map(row -> row.rowCount() > 0);
   }
 
+  // Find Duplicates
+  public Future<EmployeeDTO> findByNameAndDepartment(String name, String department) {
+    return client.preparedQuery("SELECT * FROM employees WHERE name = ? AND department = ?")
+      .execute(Tuple.of(name, department))
+      .map(rows -> {
+        if (rows.size() == 0) return null;
+        return mapRowSetToDTOs(rows).get(0);
+      });
+  }
+
+  //Reactivate soft-deleted employee
+  public Future<Void> reactivate(String id, Double newSalary) {
+    return client.preparedQuery("UPDATE employees SET active = true, salary = ? WHERE id = ?")
+      .execute(Tuple.of(newSalary, id))
+      .mapEmpty();
+  }
+
   // Private Helper
   // Keeps public methods clean by isolating mapper logic
   private List<EmployeeDTO> mapRowSetToDTOs(RowSet<Row> rows) {

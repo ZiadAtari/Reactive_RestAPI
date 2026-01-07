@@ -8,6 +8,8 @@ import ziadatari.ReactiveAPI.repository.EmployeeRepository;
 
 import java.util.List;
 
+import static java.lang.module.ModuleFinder.compose;
+
 // Business Logic
 
 public class EmployeeService {
@@ -24,7 +26,7 @@ public class EmployeeService {
     return repository.findAll();
   }
 
-  public Future<Void> createEmployee(EmployeeDTO dto) {
+  public Future<EmployeeDTO> createEmployee(EmployeeDTO dto) {
     // Validate Name
     if (dto.getName() == null || dto.getName().isBlank()) {
       return Future.failedFuture(new ServiceException(ErrorCode.MISSING_NAME));
@@ -41,8 +43,29 @@ public class EmployeeService {
     if (dto.getSalary() < 0) {
       return Future.failedFuture(new ServiceException(ErrorCode.NEGATIVE_SALARY));
     }
-    // If valid, proceed to storage
-    return repository.save(dto);
+
+    // Check for duplicates
+    return repository.findByNameAndDepartment(dto.getName(), dto.getDepartment())
+      .compose(existing -> {
+
+      if (existing == null) {
+        // CASE 1: Brand-new employee
+        return repository.save(dto).map(dto);
+      }
+
+      else if (existing.isActive()) {
+        // CASE 2: Strict Duplicate (Active)
+        return Future.failedFuture(new ServiceException(ErrorCode.DUPLICATE_EMPLOYEE));
+      }
+
+      else {
+        // CASE 3: Reactivate (Soft Deleted)
+        dto.setId(existing.getId());
+
+        return repository.reactivate(existing.getId(), dto.getSalary())
+          .map(dto); // Return the DTO with the old ID
+      }
+    });
   }
 
   public Future<Boolean> updateEmployee(String id, EmployeeDTO dto) {
