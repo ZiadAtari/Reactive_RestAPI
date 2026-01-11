@@ -183,3 +183,17 @@ nbdist/
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
+
+### IDK ###
+.idea/compiler.xml
+mvnw
+mvnw.cmd
+.idea/encodings.xml
+.idea/jarRepositories.xml
+.idea/vcs.xml
+.mvn/wrapper/maven-wrapper.properties
+.editorconfig
+.idea/.gitignore
+Run Payroll API.run.xml
+.vscode/launch.json
+.vscode/settings.json
