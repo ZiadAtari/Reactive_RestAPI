@@ -24,7 +24,8 @@ public enum ErrorCode {
 
   // --- INPUT / JSON ERRORS ---
   INVALID_JSON_FORMAT(400, "REQ_001", "Request body contains invalid JSON."),
-  EMPTY_BODY(400, "REQ_002", "Request body cannot be empty.");
+  EMPTY_BODY(400, "REQ_002", "Request body cannot be empty."),
+  TOO_MANY_REQUESTS(429, "REQ_003", "Too many requests. Please try again later.");
 
   private final int httpStatus;
   private final String code;
