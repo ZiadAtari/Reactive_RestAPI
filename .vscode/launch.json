@@ -1,0 +1,29 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Debug MainVerticle",
+            "request": "launch",
+            "mainClass": "io.vertx.core.Launcher",
+            "args": "run ziadatari.ReactiveAPI.main.MainVerticle",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "DB_PASSWORD": "Zatari4321"
+            },
+            "projectName": "ReactiveAPI"
+        },
+        {
+            "type": "java",
+            "name": "Debug MainVerticle (Redeploy)",
+            "request": "launch",
+            "mainClass": "io.vertx.core.Launcher",
+            "args": "run ziadatari.ReactiveAPI.main.MainVerticle --redeploy=\"src/main/java/**/*\" --launcher-class=io.vertx.core.Launcher",
+            "cwd": "${workspaceFolder}",
+            "env": {
+                "DB_PASSWORD": "Zatari4321"
+            },
+            "projectName": "ReactiveAPI"
+        }
+    ]
+}
