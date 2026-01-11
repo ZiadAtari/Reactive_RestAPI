@@ -22,12 +22,22 @@ public class EmployeeService {
     this.circuitBreaker = circuitBreaker;
   }
 
+  /**
+   * Fetches all employees from the database.
+   * This call is wrapped in a Circuit Breaker.
+   * If the database is under heavy load or down, the breaker will "trip" (open)
+   * after 5 failures, preventing further calls from wasting system resources.
+   */
   public Future<List<EmployeeDTO>> getAllEmployees() {
     return circuitBreaker.execute(promise -> {
       repository.findAll().onSuccess(promise::complete).onFailure(promise::fail);
     });
   }
 
+  /**
+   * Creates a new employee with business validation.
+   * Also wrapped in the Circuit Breaker to protect the database 'save' operation.
+   */
   public Future<EmployeeDTO> createEmployee(EmployeeDTO dto) {
     return circuitBreaker.execute(promise -> {
       createEmployeeLogic(dto).onSuccess(promise::complete).onFailure(promise::fail);

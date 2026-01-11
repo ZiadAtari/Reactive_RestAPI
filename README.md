@@ -82,6 +82,8 @@ This application is a reactive microservice built with Eclipse Vert.x. It differ
 
 ### Changelog:
 
+* ###### v2.0.1 Rate Limiting fixed for Race Conditions
+* ###### v2.0 Rate Limiting and Circuit Breaking added
 * ###### v1.3 Duplicate POST Handling \& Reactivation added
 * ###### v1.2 Exception Handling added
 * ###### v1.1 Soft-deletion added
