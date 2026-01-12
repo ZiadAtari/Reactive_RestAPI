@@ -82,11 +82,14 @@ This application is a reactive microservice built with Eclipse Vert.x. It differ
 
 ### Changelog:
 
+* ###### v2.1.2 Fixed Race condition for Delete & Post
+* ###### v2.1.1 Added Event Bus to isolate repository and service logic from web layer
+* ###### v2.1.0 IP verification handler added
 * ###### v2.0.1 Rate Limiting fixed for Race Conditions
-* ###### v2.0 Rate Limiting and Circuit Breaking added
-* ###### v1.3 Duplicate POST Handling \& Reactivation added
-* ###### v1.2 Exception Handling added
-* ###### v1.1 Soft-deletion added
-* ###### v1.0 CURD Functionality Implemented
-* ###### v0.2 Env Setup
-* ###### v0.1 Structure Setup
+* ###### v2.0.0 Rate Limiting and Circuit Breaking added
+* ###### v1.3.0 Duplicate POST Handling \& Reactivation added
+* ###### v1.2.0 Exception Handling added
+* ###### v1.1.0 Soft-deletion added
+* ###### v1.0.0 CURD Functionality Implemented
+* ###### v0.2.0 Env Setup
+* ###### v0.1.0 Structure Setup
