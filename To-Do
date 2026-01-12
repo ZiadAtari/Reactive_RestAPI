@@ -1,5 +1,0 @@
-To-do List:
-
-1. Implmenet Rate Limiting Mechanism
-    Explore which method is best for rate limiting in Vert.x and size of app (Token Bucket, hardcode, redis, etc)
-2. Handle Back pressure and overload such as adding a circuit breaker.

@@ -11,22 +11,34 @@ import java.util.List;
 
 // Business Logic
 
+/**
+ * Service layer responsible for business logic, validation, and fault
+ * tolerance.
+ * Acts as an intermediary between the repository and the application interface.
+ * Uses a Circuit Breaker to ensure system stability during database issues.
+ */
 public class EmployeeService {
 
   private final EmployeeRepository repository;
   private final CircuitBreaker circuitBreaker;
 
-  // Dependency Injection
+  /**
+   * Constructs an EmployeeService with its dependencies.
+   *
+   * @param employeeRepository the repository for database access
+   * @param circuitBreaker     the circuit breaker for fault tolerance
+   */
   public EmployeeService(EmployeeRepository employeeRepository, CircuitBreaker circuitBreaker) {
     this.repository = employeeRepository;
     this.circuitBreaker = circuitBreaker;
   }
 
   /**
-   * Fetches all employees from the database.
-   * This call is wrapped in a Circuit Breaker.
-   * If the database is under heavy load or down, the breaker will "trip" (open)
-   * after 5 failures, preventing further calls from wasting system resources.
+   * Fetches all active employees.
+   * Wrapped in a Circuit Breaker to prevent resource exhaustion if the DB is
+   * slow/down.
+   *
+   * @return a Future containing a list of employees
    */
   public Future<List<EmployeeDTO>> getAllEmployees() {
     return circuitBreaker.execute(promise -> {
@@ -35,8 +47,11 @@ public class EmployeeService {
   }
 
   /**
-   * Creates a new employee with business validation.
-   * Also wrapped in the Circuit Breaker to protect the database 'save' operation.
+   * Orchestrates the creation of a new employee, including validation.
+   * Wrapped in a Circuit Breaker.
+   *
+   * @param dto the employee data to create
+   * @return a Future containing the created employee (with assigned ID)
    */
   public Future<EmployeeDTO> createEmployee(EmployeeDTO dto) {
     return circuitBreaker.execute(promise -> {
@@ -44,71 +59,78 @@ public class EmployeeService {
     });
   }
 
+  /**
+   * Internal logic for employee creation, including input validation and
+   * duplicate checks.
+   *
+   * @param dto the employee data
+   * @return a Future with the result
+   */
   private Future<EmployeeDTO> createEmployeeLogic(EmployeeDTO dto) {
-    // Validate Name
+    // 1. Mandatory field validation
     if (dto.getName() == null || dto.getName().isBlank()) {
       return Future.failedFuture(new ServiceException(ErrorCode.MISSING_NAME));
     }
-    // Validate department
     if (dto.getDepartment() == null || dto.getDepartment().isBlank()) {
       return Future.failedFuture(new ServiceException(ErrorCode.INVALID_DEPARTMENT));
     }
-    // Validate Salary != null
     if (dto.getSalary() == null) {
       return Future.failedFuture(new ServiceException(ErrorCode.MISSING_SALARY));
     }
-    // Validate salary value
     if (dto.getSalary() < 0) {
       return Future.failedFuture(new ServiceException(ErrorCode.NEGATIVE_SALARY));
     }
 
-    // Check for duplicates
+    // 2. Conflict detection and recovery (Soft Delete handling)
     return repository.findByNameAndDepartment(dto.getName(), dto.getDepartment())
         .compose(existing -> {
 
           if (existing == null) {
-            // CASE 1: Brand-new employee
+            // CASE 1: Brand-new employee entry
             return repository.save(dto).map(dto);
           }
 
         else if (existing.isActive()) {
-            // CASE 2: Strict Duplicate (Active)
+            // CASE 2: Active duplicate found - reject
             return Future.failedFuture(new ServiceException(ErrorCode.DUPLICATE_EMPLOYEE));
           }
 
         else {
-            // CASE 3: Reactivate (Soft Deleted)
+            // CASE 3: Inactive record found - reactivate instead of creating new
             dto.setId(existing.getId());
-
             return repository.reactivate(existing.getId(), dto.getSalary())
-                .map(dto); // Return the DTO with the old ID
+                .map(dto);
           }
         });
   }
 
+  /**
+   * Orchestrates the update of an existing employee.
+   *
+   * @param id  the ID of the employee to update
+   * @param dto the new data
+   * @return a Future indicating success
+   */
   public Future<Boolean> updateEmployee(String id, EmployeeDTO dto) {
     return circuitBreaker.execute(promise -> {
       updateEmployeeLogic(id, dto).onSuccess(promise::complete).onFailure(promise::fail);
     });
   }
 
+  /**
+   * Internal logic for updating an employee, including validation and existence
+   * checks.
+   */
   private Future<Boolean> updateEmployeeLogic(String id, EmployeeDTO dto) {
-    // 1. Validate ID
     if (id == null || id.isBlank()) {
       return Future.failedFuture(new ServiceException(ErrorCode.EMPLOYEE_ID_REQUIRED));
     }
-
-    // 2. Validate Name
     if (dto.getName() == null || dto.getName().isBlank()) {
       return Future.failedFuture(new ServiceException(ErrorCode.MISSING_NAME));
     }
-
-    // 3. Validate Salary
     if (dto.getSalary() != null && dto.getSalary() < 0) {
       return Future.failedFuture(new ServiceException(ErrorCode.NEGATIVE_SALARY));
     }
-
-    // 4. Validate Department
     if (dto.getDepartment() != null && dto.getDepartment().isBlank()) {
       return Future.failedFuture(new ServiceException(ErrorCode.INVALID_DEPARTMENT));
     }
@@ -122,12 +144,21 @@ public class EmployeeService {
         });
   }
 
+  /**
+   * Orchestrates the deletion of an employee by ID.
+   *
+   * @param id the employee ID
+   * @return a Future indicating success
+   */
   public Future<Boolean> deleteEmployee(String id) {
     return circuitBreaker.execute(promise -> {
       deleteEmployeeLogic(id).onSuccess(promise::complete).onFailure(promise::fail);
     });
   }
 
+  /**
+   * Internal logic for deletion.
+   */
   private Future<Boolean> deleteEmployeeLogic(String id) {
     if (id == null || id.isBlank()) {
       return Future.failedFuture(new ServiceException(ErrorCode.EMPLOYEE_ID_REQUIRED));

@@ -5,6 +5,10 @@ import ziadatari.ReactiveAPI.exception.ErrorCode;
 
 import java.time.Instant;
 
+/**
+ * Data Transfer Object representing an API error response.
+ * Encapsulates error details like code, message, HTTP status, and timestamp.
+ */
 public class ApiError {
 
   private final String errorCode;
@@ -12,6 +16,11 @@ public class ApiError {
   private final int status;
   private final String timestamp;
 
+  /**
+   * Constructs an ApiError using an ErrorCode enum.
+   *
+   * @param code the ErrorCode containing error details
+   */
   public ApiError(ErrorCode code) {
     this.errorCode = code.getCode();
     this.message = code.getMessage();
@@ -19,7 +28,12 @@ public class ApiError {
     this.timestamp = Instant.now().toString();
   }
 
-  // Construcor for messages
+  /**
+   * Constructs an ApiError using an ErrorCode enum and a custom message.
+   *
+   * @param code          the ErrorCode containing default error details
+   * @param customMessage a specific error message to override the default
+   */
   public ApiError(ErrorCode code, String customMessage) {
     this.errorCode = code.getCode();
     this.message = customMessage;
@@ -27,13 +41,17 @@ public class ApiError {
     this.timestamp = Instant.now().toString();
   }
 
-  // Convert vert.x jsonobject
+  /**
+   * Converts the ApiError object to a Vert.x JsonObject.
+   *
+   * @return a JsonObject representation of the error
+   */
   public JsonObject toJson() {
     return new JsonObject()
-      .put("success", false)
-      .put("error_code", errorCode)
-      .put("message", message)
-      .put("status", status)
-      .put("timestamp", timestamp);
+        .put("success", false)
+        .put("error_code", errorCode)
+        .put("message", message)
+        .put("status", status)
+        .put("timestamp", timestamp);
   }
 }

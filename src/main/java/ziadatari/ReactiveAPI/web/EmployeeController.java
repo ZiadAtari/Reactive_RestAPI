@@ -1,94 +1,162 @@
 package ziadatari.ReactiveAPI.web;
 
+import io.vertx.core.Vertx;
+import io.vertx.core.eventbus.ReplyException;
 import io.vertx.ext.web.RoutingContext;
 import ziadatari.ReactiveAPI.dto.EmployeeDTO;
+import ziadatari.ReactiveAPI.exception.ErrorCode;
 import ziadatari.ReactiveAPI.exception.GlobalErrorHandler;
-import ziadatari.ReactiveAPI.service.EmployeeService;
+import ziadatari.ReactiveAPI.exception.ServiceException;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 
 import java.time.Instant;
 
-// Handles parsing HTTP requests and calling service
-
+/**
+ * Controller responsible for handling HTTP requests related to Employees.
+ * It parses incoming JSON, performs basic validation, and communicates with the
+ * EmployeeVerticle via the Vert.x Event Bus.
+ */
 public class EmployeeController {
 
-  // Allows services to be swapped later
-  private final EmployeeService service;
+  private final Vertx vertx;
 
-  public EmployeeController(EmployeeService service) {
-    this.service = service;
+  /**
+   * Constructs an EmployeeController.
+   *
+   * @param vertx the Vertx instance used for Event Bus communication
+   */
+  public EmployeeController(Vertx vertx) {
+    this.vertx = vertx;
   }
 
-
+  /**
+   * Handles GET /employees.
+   * Requests all employee records from the service layer via the Event Bus.
+   *
+   * @param ctx the routing context
+   */
   public void getAll(RoutingContext ctx) {
-    service.getAllEmployees()
-      .onSuccess(list -> {
-        JsonArray response = new JsonArray();
-        list.forEach(dto -> response.add(dto.toJson()));
-        ctx.json(response);
-      })
-      .onFailure(err -> GlobalErrorHandler.handle(ctx, err)); // Centralized
+    vertx.eventBus().<JsonArray>request("employees.get.all", null)
+        .onSuccess(msg -> ctx.json(msg.body()))
+        .onFailure(err -> handleError(ctx, err));
   }
 
+  /**
+   * Handles POST /employees.
+   * Parses the request body and requests employee creation.
+   *
+   * @param ctx the routing context
+   */
   public void create(RoutingContext ctx) {
     try {
       JsonObject body = ctx.body().asJsonObject();
-      EmployeeDTO dto = EmployeeDTO.fromJson(body);
 
-      service.createEmployee(dto)
-        .onSuccess(savedDto -> {
-          sendResponse(ctx, 201, "CREATE", savedDto.getId(), savedDto.getName());
-        })
-        .onFailure(err -> GlobalErrorHandler.handle(ctx, err));
+      // Preliminary validation: attempt DTO parsing to catch format errors early.
+      EmployeeDTO.fromJson(body);
+
+      vertx.eventBus().<JsonObject>request("employees.create", body)
+          .onSuccess(msg -> {
+            JsonObject savedJson = msg.body();
+            sendResponse(ctx, 201, "CREATE", savedJson.getString("id"), savedJson.getString("name"));
+          })
+          .onFailure(err -> {
+            handleError(ctx, err);
+          });
 
     } catch (Exception e) {
       GlobalErrorHandler.handle(ctx, e);
     }
   }
 
+  /**
+   * Handles PUT /employees/:id.
+   * Updates an existing employee after merging the ID from the path into the
+   * payload.
+   *
+   * @param ctx the routing context
+   */
   public void update(RoutingContext ctx) {
     String id = ctx.pathParam("id");
 
     try {
       JsonObject body = ctx.body().asJsonObject();
-      EmployeeDTO dto = EmployeeDTO.fromJson(body);
+      // Inject path ID into payload for unified Event Bus transmission
+      JsonObject payload = body.copy().put("id", id);
 
-      service.updateEmployee(id, dto)
-        .onSuccess(found -> {
-          sendResponse(ctx, 200, "UPDATE", id, dto.getName());
-        }) // Service handles 404 now
-        .onFailure(err -> GlobalErrorHandler.handle(ctx, err));
+      EmployeeDTO dto = EmployeeDTO.fromJson(body); // Validation check
+
+      vertx.eventBus().<JsonObject>request("employees.update", payload)
+          .onSuccess(msg -> {
+            sendResponse(ctx, 200, "UPDATE", id, dto.getName());
+          })
+          .onFailure(err -> handleError(ctx, err));
 
     } catch (Exception e) {
       GlobalErrorHandler.handle(ctx, e);
     }
   }
 
+  /**
+   * Handles DELETE /employees/:id.
+   * Requests a soft-delete of an employee by ID.
+   *
+   * @param ctx the routing context
+   */
   public void delete(RoutingContext ctx) {
     String id = ctx.pathParam("id");
 
-    service.deleteEmployee(id)
-      .onSuccess(found -> {
-        // No name for delete ONLY
-        sendResponse(ctx, 200, "DELETE", id, "N/A");
-      })
-      .onFailure(err -> GlobalErrorHandler.handle(ctx, err));
+    vertx.eventBus().<JsonObject>request("employees.delete", id)
+        .onSuccess(msg -> {
+          sendResponse(ctx, 200, "DELETE", id, "N/A");
+        })
+        .onFailure(err -> handleError(ctx, err));
   }
 
-  // Helper for Response
+  /**
+   * Maps Event Bus failures (ReplyException) back to ServiceExceptions
+   * so they can be handled by the GlobalErrorHandler.
+   *
+   * @param ctx the routing context
+   * @param err the error caught from the Event Bus
+   */
+  private void handleError(RoutingContext ctx, Throwable err) {
+    if (err instanceof ReplyException) {
+      ReplyException re = (ReplyException) err;
+      int codeInt = re.failureCode();
+      ErrorCode[] allCodes = ErrorCode.values();
+
+      // Retrieve original ErrorCode enum by ordinal
+      if (codeInt >= 0 && codeInt < allCodes.length) {
+        GlobalErrorHandler.handle(ctx, new ServiceException(allCodes[codeInt], re.getMessage()));
+      } else {
+        GlobalErrorHandler.handle(ctx, new ServiceException(ErrorCode.INTERNAL_SERVER_ERROR, re.getMessage()));
+      }
+    } else {
+      GlobalErrorHandler.handle(ctx, err);
+    }
+  }
+
+  /**
+   * Standardized helper to send unified success responses.
+   *
+   * @param ctx        the routing context
+   * @param statusCode the HTTP status code
+   * @param operation  the name of the operation performed
+   * @param id         the ID of the affected record
+   * @param name       the name of the affected record
+   */
   private void sendResponse(RoutingContext ctx, int statusCode, String operation, String id, String name) {
     JsonObject response = new JsonObject()
-      .put("Operation", operation)
-      .put("Status", "SUCCESS")
-      .put("Affected ID", id)
-      .put("Affected Name", name)
-      .put("Time", Instant.now().toString());
+        .put("Operation", operation)
+        .put("Status", "SUCCESS")
+        .put("Affected ID", id)
+        .put("Affected Name", name)
+        .put("Time", Instant.now().toString());
 
     ctx.response()
-      .setStatusCode(statusCode)
-      .putHeader("content-type", "application/json")
-      .end(response.encodePrettily());
+        .setStatusCode(statusCode)
+        .putHeader("content-type", "application/json")
+        .end(response.encodePrettily());
   }
-
 }
