@@ -36,7 +36,7 @@ public class HttpVerticle extends AbstractVerticle {
     // 1. BodyHandler: Essential for reading JSON bodies from incoming requests.
     router.route().handler(BodyHandler.create());
 
-    // 2. RateLimitHandler: Limits requests per IP (e.g., 100 reqs per 1000ms
+    // 2. RateLimitHandler: Limits requests per IP (100 reqs per 1000ms
     // window).
     router.route().handler(new RateLimitHandler(vertx, 100, 1000));
 
