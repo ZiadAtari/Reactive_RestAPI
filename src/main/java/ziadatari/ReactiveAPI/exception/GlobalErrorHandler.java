@@ -1,7 +1,7 @@
 package ziadatari.ReactiveAPI.exception;
 
 import io.vertx.core.json.DecodeException;
-import io.vertx.core.json.Json;
+
 import io.vertx.ext.web.RoutingContext;
 import ziadatari.ReactiveAPI.dto.ApiError;
 
@@ -20,7 +20,7 @@ public class GlobalErrorHandler {
       reply(ctx, ErrorCode.INVALID_JSON_FORMAT);
     }
 
-    //Case 3: Unknown system failure
+    // Case 3: Unknown system failure
     else {
       System.err.println("CRITICAL FAILURE:" + cause.getMessage());
       cause.printStackTrace();
@@ -33,8 +33,8 @@ public class GlobalErrorHandler {
     ApiError response = new ApiError(code);
 
     ctx.response()
-      .setStatusCode(code.getHttpStatus())
-      .putHeader("content-type", "application/json")
-      .end(response.toJson().encode());
+        .setStatusCode(code.getHttpStatus())
+        .putHeader("content-type", "application/json")
+        .end(response.toJson().encode());
   }
 }

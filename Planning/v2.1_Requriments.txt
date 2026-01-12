@@ -1,0 +1,13 @@
+I want to test how the REST API employee registry application handles non-breaking API's by introducing a dummy extrernal verification API which asks for the IP of the client tring to access the DB using the REST API, and returns success.  
+
+Version: 2.1
+Goal: Implement Handling for Non-Blocking API's
+
+Overview:
+The Application will now be required to contact an external API (http://localhost:8080/ip?address=1.1.1.1) where the IP of the connecting client will be forwarded and a verification JSON will be returned as follows:
+{
+    "ip": "1.1.1.1",
+    "message": "Success"
+}
+
+This verification layer will be used to test how the application handles blocking API's in its vertX environment, implementing proper error and exception handling in reactive environments.
