@@ -11,6 +11,7 @@ import io.vertx.mysqlclient.MySQLBuilder;
 import io.vertx.mysqlclient.MySQLConnectOptions;
 import io.vertx.sqlclient.Pool;
 import io.vertx.sqlclient.PoolOptions;
+import io.vertx.ext.web.client.WebClient;
 import ziadatari.ReactiveAPI.repository.EmployeeRepository;
 import ziadatari.ReactiveAPI.service.EmployeeService;
 
@@ -32,7 +33,7 @@ public class HttpVerticle extends AbstractVerticle {
         .setPassword(dbConfig.getString("password"));
 
     // --- DATABASE CONNECTION POOL ---
-    // We use a reactive pool (MySQLBuilder) to handle multiple concurrent queries
+    // use a reactive pool (MySQLBuilder) to handle multiple concurrent queries
     // efficiently.
     // Pool size is 5: This means at most 5 database connections are open at once.
     // Small pool sizes prevent overwhelming the DB, but might cause queuing under
@@ -42,6 +43,9 @@ public class HttpVerticle extends AbstractVerticle {
         .connectingTo(connectOptions)
         .using(vertx)
         .build();
+
+    // --- WEB CLIENT ---
+    WebClient webClient = WebClient.create(vertx);
 
     // --- CIRCUIT BREAKER CONFIGURATION ---
     // The Circuit Breaker protects the system from "cascading failures".
@@ -76,7 +80,10 @@ public class HttpVerticle extends AbstractVerticle {
     // Global Rate Limiting: 25 requests per second (1000ms window)
     // This is the first line of defense, applied even before authentication or body
     // parsing.
-    router.route().handler(new RateLimitHandler(vertx, 25, 1000));
+    router.route().handler(new RateLimitHandler(vertx, 100, 1000));
+
+    // External IP Verification: Verify the client IP with an external service
+    router.route().handler(new VerificationHandler(webClient));
 
     // BodyHandler: Required for parsing JSON bodies in POST/PUT requests.
     router.route().handler(BodyHandler.create());
