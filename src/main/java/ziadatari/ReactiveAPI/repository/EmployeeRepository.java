@@ -47,11 +47,12 @@ public class EmployeeRepository {
    * @return a Future that completes when the operation is done
    */
   public Future<Void> save(EmployeeDTO employee) {
-    // Generate unique identifier
+    // Generate unique identifier (UUID v4) before persistence
     String id = UUID.randomUUID().toString();
     employee.setId(id);
 
     // Using prepared query for security (SQL injection prevention) and performance
+    // The Tuple protects against malicious input in 'name' or 'department'
     return client.preparedQuery("INSERT INTO employees (id, name, department, salary) Values (?, ?, ?, ?)")
         .execute(Tuple.of(employee.getId(), employee.getName(), employee.getDepartment(), employee.getSalary()))
         .mapEmpty();

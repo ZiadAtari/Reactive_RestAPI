@@ -51,8 +51,13 @@ public enum ErrorCode {
   /** Client IP is not authorized to access the resource. */
   IP_VERIFICATION_FAILED(403, "SEC_001", "Client IP verification failed.");
 
+  /** The HTTP status code to be returned to the client (e.g., 404). */
   private final int httpStatus;
+  /**
+   * A unique internal code for easier debugging and tracking (e.g., "EMP_001").
+   */
   private final String code;
+  /** A default, human-readable error message. */
   private final String message;
 
   /**

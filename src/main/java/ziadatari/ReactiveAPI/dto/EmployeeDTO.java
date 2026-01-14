@@ -11,10 +11,15 @@ import io.vertx.core.json.JsonObject;
  * ensuring decoupling and data isolation.
  */
 public class EmployeeDTO {
+  /** Unique identifier for the employee. UUID format. */
   private String id;
+  /** Full name of the employee. */
   private String name;
+  /** Department where the employee works. */
   private String department;
+  /** Annual salary of the employee. */
   private Double salary;
+  /** Employment status. True if currently employed, false otherwise. */
   private Boolean active;
 
   /**

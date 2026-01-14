@@ -1,0 +1,99 @@
+# JWT Authentication & API Versioning Implementation Plan
+
+# Goal Description
+Implement JWT-based authentication for service-to-service communication between `ReactiveAPI` (client) and `demo` (verification service). Introduce API versioning to `demo` to support both legacy (unauthenticated) and new (authenticated) endpoints.
+
+## User Review Required
+> [!IMPORTANT]
+> **Asymmetric Keys (RS256)**: We will use an RSA Key Pair.
+> *   **Private Key**: Held by `ReactiveAPI` to **sign** tokens.
+> *   **Public Key**: Held by `demo` to **verify** tokens.
+> *   *Note*: For this implementation, we will generate a static KeyPair and embed them (or load from file) for simplicity.
+
+> [!NOTE]
+> **API Versioning**:
+> *   `GET /ip` and `GET /v1/ip`: Unauthenticated (Legacy)
+> *   `GET /v3/ip`: Authenticated (New, requires `Authorization: Bearer <token>`)
+
+> [!TIP]
+> **Performance**:
+> *   **Token Caching**: `ReactiveAPI` will cache the generated token and reuse it until it is near expiration to save CPU.
+> *   **Clock Skew**: `demo` service will be configured to allow a small time leeway (e.g., 60 seconds) to account for server clock differences.
+
+## Proposed Changes
+
+### External Service: `demo` (Spring Boot)
+We need to secure the application using RS256 verification and expose the new V3 endpoint.
+
+#### [MODIFY] [pom.xml](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/demo/pom.xml)
+*   Add `spring-boot-starter-security`.
+*   Add `jjwt-api`, `jjwt-impl`, and `jjwt-jackson`.
+
+#### [NEW] [SecurityConfig.java](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/demo/src/main/java/com/example/demo/SecurityConfig.java)
+*   Configure `SecurityFilterChain`.
+*   `csrf().disable()`.
+*   `authorizeHttpRequests`:
+    *   `/v3/**` -> authenticated().
+    *   `/ip`, `/v1/**` -> permitAll().
+
+#### [NEW] [JwtAuthenticationFilter.java](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/demo/src/main/java/com/example/demo/JwtAuthenticationFilter.java)
+*   Extend `OncePerRequestFilter`.
+*   Intercept requests to `/v3/**`.
+*   Extract `Authorization` header.
+*   **Validation**: Use the **Public Key** to verify the signature (RS256).
+*   **Clock Skew**: Configure the JWT parser with `setAllowedClockSkewSeconds(60)` (or `setSigningKeyHelper` with leeway) to handle clock drift.
+*   Set `Authentication` object in context if valid.
+
+#### [MODIFY] [IpController.java](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/demo/src/main/java/com/example/demo/IpController.java)
+*   Update mappings:
+    *   Keep `@GetMapping("/ip")` for legacy.
+    *   Add `@GetMapping("/v1/ip")` (legacy alias).
+    *   Add `@GetMapping("/v3/ip")` for the authenticated path.
+
+---
+
+### Main Application: `ReactiveAPI` (Vert.x) - SOLID Refactoring
+To adhere to **Single Responsibility (SRP)** and **Dependency Inversion (DIP)**, we will decouple token management from the HTTP handler.
+
+#### [NEW] [TokenService.java] (Interface)
+*   Defines contract: `Future<String> getToken();`
+
+#### [NEW] [Rs256TokenService.java] (Implementation)
+*   **Responsibility**: Handles all JWT logic (Generation, Signing (RS256), Caching, Expiration).
+*   **Concurrency**: Must be **Thread-Safe** (e.g., uses `AtomicReference` or `synchronized`) since the same service instance will be shared across multiple [HttpVerticle](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/src/main/java/ziadatari/ReactiveAPI/web/HttpVerticle.java#15-70) instances (Event Loops).
+*   **Fields**: `JWTAuth` provider, `AtomicReference<String> cachedToken`, `long expiration`.
+*   **Logic**: Encapsulates the check-cache-or-generate logic.
+
+#### [MODIFY] [VerificationHandler.java](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/src/main/java/ziadatari/ReactiveAPI/web/VerificationHandler.java)
+*   **Refactor**: Remove `JWTAuth` dependency.
+*   **Dependency**: Inject `TokenService`.
+*   **Logic**:
+    *   Call `tokenService.getToken()`.
+    *   On success, proceed with `WebClient` request to `/v3/ip`.
+*   **Benefit**: The handler focuses solely on flow control and HTTP, not auth mechanics.
+
+#### [MODIFY] [HttpVerticle.java](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/src/main/java/ziadatari/ReactiveAPI/web/HttpVerticle.java)
+*   **Constructor**: Add a constructor [HttpVerticle(TokenService tokenService)](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/src/main/java/ziadatari/ReactiveAPI/web/HttpVerticle.java#15-70).
+*   **Startup**: Pass the injected `tokenService` to the [VerificationHandler](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/src/main/java/ziadatari/ReactiveAPI/web/VerificationHandler.java#16-79).
+
+#### [MODIFY] [MainVerticle.java](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/src/main/java/ziadatari/ReactiveAPI/main/MainVerticle.java)
+*   Configure `JWTAuth` with the **Private Key** (RS256).
+*   Instantiate `Rs256TokenService(jwtAuth)`.
+*   **Deployment Strategy (Fixing "Instance Deployment" Gotcha)**:
+    *   *Issue*: `vertx.deployVerticle(new HttpVerticle(...))` prevents using `setInstances(n)` for multi-core scaling.
+    *   *Solution*: Implement a **manual deployment loop**.
+        ```java
+        int instances = Runtime.getRuntime().availableProcessors(); // or config
+        for (int i = 0; i < instances; i++) {
+             vertx.deployVerticle(new HttpVerticle(tokenService), options.setInstances(1));
+        }
+        ```
+    *   This allows us to inject the **singleton** `TokenService` (shared cache) while scaling the HTTP handlers across event loops.
+
+## Verification Plan
+
+### Manual Verification
+*   Run both applications (`demo` and `ReactiveAPI`).
+*   Verify `ReactiveAPI` correctly caches the token (logs can confirm generation vs reuse).
+*   Verify `demo` accepts the token on `/v3/ip`.
+*   Test `/ip` (legacy) works without auth.

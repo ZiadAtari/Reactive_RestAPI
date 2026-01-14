@@ -68,6 +68,7 @@ public class EmployeeService {
    */
   private Future<EmployeeDTO> createEmployeeLogic(EmployeeDTO dto) {
     // 1. Mandatory field validation
+    // Ensure all critical fields are present before hitting the DB
     if (dto.getName() == null || dto.getName().isBlank()) {
       return Future.failedFuture(new ServiceException(ErrorCode.MISSING_NAME));
     }
@@ -82,6 +83,7 @@ public class EmployeeService {
     }
 
     // 2. Conflict detection and recovery (Soft Delete handling)
+    // We check if an employee with the same Name/Dept exists
     return repository.findByNameAndDepartment(dto.getName(), dto.getDepartment())
         .compose(existing -> {
 
@@ -91,12 +93,14 @@ public class EmployeeService {
           }
 
         else if (existing.isActive()) {
-            // CASE 2: Active duplicate found - reject
+            // CASE 2: Active duplicate found - reject creation to prevent data
+            // inconsistency
             return Future.failedFuture(new ServiceException(ErrorCode.DUPLICATE_EMPLOYEE));
           }
 
         else {
-            // CASE 3: Inactive record found - reactivate instead of creating new
+            // CASE 3: Inactive record found (Soft Deleted)
+            // Reactivate the old record instead of creating a new one to preserve history
             dto.setId(existing.getId());
             return repository.reactivate(existing.getId(), dto.getSalary())
                 .map(dto);
