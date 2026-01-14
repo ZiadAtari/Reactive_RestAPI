@@ -1,0 +1,91 @@
+# JWT Authentication Assessment: ReactiveAPI <-> Verification Service
+
+## 1. Current State
+*   **Main Application (`ReactiveAPI`)**: `VerificationHandler` makes an unauthenticated `GET` request to the external service.
+*   **External Service (`demo`)**: `IpController` exposes an open `/ip` endpoint without security.
+
+## 2. Objective
+Implement a robust JWT-based authentication mechanism where `ReactiveAPI` authenticates itself to the external `demo` service before requesting verification.
+
+## 3. Architecture Options
+
+### Option A: Shared Secret (Self-Signed Tokens) - **RECOMMENDED**
+In this model, both services share a secret key.
+1.  **ReactiveAPI** (Client) generates a JWT signed with the shared secret.
+2.  **ReactiveAPI** sends the token in the `Authorization: Bearer <token>` header.
+3.  **Demo Service** (Server) validates the signature using the same secret.
+
+*   **Pros**:
+    *   No need for a separate "login" request (performance benefit).
+    *   Simple to implement for service-to-service communication.
+    *   Stateless.
+*   **Cons**:
+    *   Key management (shared secret must be kept secure on both sides).
+    *   No centralized revocation (unless expiration is short).
+
+### Option B: Auth Server / Login Flow
+1.  **ReactiveAPI** calls a `/login` endpoint on `demo` (or a 3rd party IDP) with credentials.
+2.  **Demo** issues a JWT.
+3.  **ReactiveAPI** caches the token and uses it for subsequent requests.
+
+*   **Pros**:
+    *   Standard OAuth2/OIDC pattern.
+    *   Allows for better key rotation and management.
+*   **Cons**:
+    *   Adds network latency (need to fetch token, handle expiration/refresh).
+    *   More complex state management (token caching) in `VerificationHandler`.
+
+## 4. Implementation Details (Option A)
+
+### Changes: `demo` (External Service)
+**Tech Stack**: Spring Boot
+1.  **Dependencies**: Add `spring-boot-starter-security` and a JWT library (e.g., `io.jsonwebtoken:jjwt-api`).
+2.  **Security Config**:
+    *   Disable CSRF (stateless API).
+    *   Configure `SecurityFilterChain` to authorize requests to `/ip`.
+3.  **JWT Filter**:
+    *   Create a `OncePerRequestFilter`.
+    *   Intercept requests, extract `Authorization` header.
+    *   Validate JWT signature and expiration.
+    *   Set `Authentication` in the `SecurityContext`.
+
+### Changes: `ReactiveAPI` (Main App)
+**Tech Stack**: Vert.x
+1.  **Dependencies**: Add `io.vertx:vertx-auth-jwt`.
+2.  **Configuration**:
+    *   Configure `JWTAuth` provider with the shared secret (HMAC algorithm).
+3.  **VerificationHandler**:
+    *   Generate a token before making the request.
+    *   Best Practice: Generate a token with a reasonable expiration (e.g., 5-10 mins) and reuse it, or generate per request if overhead is negligible.
+    *   Update `WebClient` request: `.putHeader("Authorization", "Bearer " + token)`.
+
+## 5. API Versioning Strategy
+To meet the requirement of keeping the current version active while introducing JWT, we will implement **URL Path Versioning** on the `demo` service.
+
+### Strategy: Parallel Endpoints
+*   **v1 (Current)**: `/ip` or `/v1/ip`
+    *   **Behavior**: Remains unchanged. Unauthenticated.
+    *   **Usage**: Legacy calls.
+*   **v2 (New)**: `/v2/ip`
+    *   **Behavior**: Requires JWT Authentication header.
+    *   **Usage**: New secure calls.
+
+### Impact on Architecture
+1.  **Demo Service (Spring Boot)**:
+    *   **Controller**: Refactor `IpController` to map endpoints to both paths or create a new `IpControllerV2`.
+    *   **Security Config**: Configure the `SecurityFilterChain` to **only** apply authentication filters to `/v2/**`. Paths matching `/ip` or `/v1/**` must be `permitAll()`.
+    
+2.  **ReactiveAPI (Vert.x)**:
+    *   The `VerificationHandler` can be updated to point to `/v2/ip` and send the JWT.
+    *   If `ReactiveAPI` itself needs to support both versions (e.g., via a feature flag or separate handlers), we can make the destination URL configurable.
+
+### Why this addresses "API calls & Headers":
+*   Old cliensts/calls to `/ip` **do not** need to send headers. They continue to work as is.
+*   Only calls to `/v2/ip` require the `Authorization` header.
+*   Spring Security cleanly separates these concerns based on the request path.
+
+## 6. Security Considerations
+*   **Secret Management**: The shared secret should be loaded from environment variables, not hardcoded.
+*   **HTTPS**: In production, all traffic must be over HTTPS to protect the token.
+*   **Algorithm**: Use `HS256` (HMAC with SHA-256) for shared secrets.
+*   **Expiration**: Tokens should have a short expiry (`exp` claim) to limit the window of replay attacks.

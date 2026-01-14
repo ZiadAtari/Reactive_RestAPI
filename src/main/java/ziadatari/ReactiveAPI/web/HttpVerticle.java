@@ -42,7 +42,9 @@ public class HttpVerticle extends AbstractVerticle {
 
     // 3. VerificationHandler: Performs IP-based authorization against an external
     // service.
-    router.route().handler(new VerificationHandler(webClient));
+    // Config: 2000ms timeout, 5000ms reset, 3 failures max
+    CustomCircuitBreaker circuitBreaker = new CustomCircuitBreaker(vertx, 500, 800, 5);
+    router.route().handler(new VerificationHandler(webClient, circuitBreaker));
 
     // --- API ROUTES ---
     router.get("/employees").handler(controller::getAll);

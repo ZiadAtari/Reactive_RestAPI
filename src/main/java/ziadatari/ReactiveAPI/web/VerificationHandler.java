@@ -16,14 +16,17 @@ import ziadatari.ReactiveAPI.exception.ServiceException;
 public class VerificationHandler implements Handler<RoutingContext> {
 
     private final WebClient webClient;
+    private final CustomCircuitBreaker circuitBreaker;
 
     /**
-     * Constructs the handler with a shared WebClient.
+     * Constructs the handler with a shared WebClient and CircuitBreaker.
      *
-     * @param webClient client to make external requests
+     * @param webClient      client to make external requests
+     * @param circuitBreaker circuit breaker to protect against external failures
      */
-    public VerificationHandler(WebClient webClient) {
+    public VerificationHandler(WebClient webClient, CustomCircuitBreaker circuitBreaker) {
         this.webClient = webClient;
+        this.circuitBreaker = circuitBreaker;
     }
 
     /**
@@ -37,11 +40,16 @@ public class VerificationHandler implements Handler<RoutingContext> {
     public void handle(RoutingContext ctx) {
         String ip = ctx.request().remoteAddress().host();
 
-        // Asynchronous call to verification service
-        webClient.get(8080, "localhost", "/ip")
+        circuitBreaker.execute(() -> webClient.get(8080, "localhost", "/ip")
                 .addQueryParam("address", ip)
                 .send()
-                .onSuccess(response -> {
+                .map(response -> {
+                    // Map 5xx errors to failures so the circuit breaker trips
+                    if (response.statusCode() >= 500) {
+                        throw new RuntimeException("External Service Error: " + response.statusCode());
+                    }
+                    return response;
+                })).onSuccess(response -> {
                     JsonObject body = null;
                     try {
                         body = response.bodyAsJsonObject();
@@ -55,13 +63,14 @@ public class VerificationHandler implements Handler<RoutingContext> {
                     } else if (body != null && body.getString("message", "").startsWith("Failure")) {
                         GlobalErrorHandler.handle(ctx, new ServiceException(ErrorCode.IP_VERIFICATION_FAILED));
                     } else {
-                        // Service error or unexpected response
+                        // Service returned 200 but unexpected content, treat as UNAVAILABLE or just
+                        // allow/block?
+                        // Assuming block to be safe
                         GlobalErrorHandler.handle(ctx, new ServiceException(ErrorCode.SERVICE_UNAVAILABLE,
-                                "Verification service unavailable"));
+                                "Verification service unavailable (invalid response)"));
                     }
-                })
-                .onFailure(err -> {
-                    // Connectivity issues with the verification service
+                }).onFailure(err -> {
+                    // Circuit Breaker Open, Timeout, or Connection Error
                     GlobalErrorHandler.handle(ctx, new ServiceException(ErrorCode.SERVICE_UNAVAILABLE,
                             "Verification service error: " + err.getMessage()));
                 });
