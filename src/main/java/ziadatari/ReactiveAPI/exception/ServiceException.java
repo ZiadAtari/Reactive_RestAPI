@@ -7,6 +7,7 @@ package ziadatari.ReactiveAPI.exception;
  */
 public class ServiceException extends RuntimeException {
 
+  /** The specific error code associated with this business exception. */
   private final ErrorCode errorCode;
 
   /**

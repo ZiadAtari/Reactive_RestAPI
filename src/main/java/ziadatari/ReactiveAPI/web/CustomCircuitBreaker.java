@@ -85,6 +85,7 @@ public class CustomCircuitBreaker {
         long timerId = vertx.setTimer(executionTimeoutMs, id -> {
             if (!promise.future().isComplete()) {
                 String msg = "Operation timed out after " + executionTimeoutMs + "ms";
+                // Timeout counts as a failure
                 handleFailure(new RuntimeException(msg));
                 promise.tryFail(new ServiceException(ErrorCode.SERVICE_UNAVAILABLE, msg));
             }
@@ -99,6 +100,7 @@ public class CustomCircuitBreaker {
                     })
                     .onFailure(err -> {
                         vertx.cancelTimer(timerId);
+                        // Functional failure (e.g., DB error) counts towards threshold
                         handleFailure(err);
                         promise.tryFail(err);
                     });

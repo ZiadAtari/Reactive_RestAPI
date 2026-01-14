@@ -49,6 +49,10 @@ public class RateLimitHandler implements Handler<RoutingContext> {
         LocalMap<String, JsonObject> map = vertx.sharedData().getLocalMap("rate.limit");
 
         // 3. Atomic Update Loop
+        // We use Compare-and-Swap (CAS) semantics via map.replace() to handle
+        // concurrency.
+        // If another thread updates the map for this IP while we are calculating,
+        // map.replace() returns false, and we loop again to get the fresh data.
         boolean updated = false;
         while (!updated) {
             JsonObject data = map.get(ip);

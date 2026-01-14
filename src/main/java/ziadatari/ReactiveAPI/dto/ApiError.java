@@ -11,9 +11,13 @@ import java.time.Instant;
  */
 public class ApiError {
 
+  /** The internal error code string (e.g., "GEN_001"). */
   private final String errorCode;
+  /** A human-readable message describing the error. */
   private final String message;
+  /** The HTTP status code associated with the error (e.g., 404, 500). */
   private final int status;
+  /** The timestamp when the error occurred (ISO-8601 format). */
   private final String timestamp;
 
   /**

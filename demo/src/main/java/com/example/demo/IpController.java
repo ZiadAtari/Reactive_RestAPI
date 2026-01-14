@@ -15,12 +15,23 @@ public class IpController {
 
     private final Random random = new Random();
 
-    @GetMapping("/ip")
-    public ResponseEntity<Map<String, String>> getIp(@RequestParam String address) {
+    @GetMapping({ "/ip", "/v1/ip" })
+    public ResponseEntity<Map<String, String>> getIpLegacy(@RequestParam String address) {
+        return processIpRequest(address);
+    }
+
+    @GetMapping("/v3/ip")
+    public ResponseEntity<Map<String, String>> getIpAuthenticated(@RequestParam String address) {
+        return processIpRequest(address);
+    }
+
+    private ResponseEntity<Map<String, String>> processIpRequest(String address) {
         Map<String, String> response = new HashMap<>();
         response.put("ip", address);
 
         // Random Latency (40% chance, 500ms - 5000ms)
+        // Simulates network jitter or slow processing to test client-side timeout
+        // handling
         if (random.nextDouble(100) < 1) {
             long sleepMillis = 500 + random.nextInt(4501);
             try {
@@ -31,6 +42,8 @@ public class IpController {
         }
 
         // Truly Randomized Failures (1% chance)
+        // Simulates various server-side faults to test client-side circuit breaker and
+        // error mapping
         if (random.nextDouble(100.0) < 1) {
             int errorCode = random.nextInt(4);
             switch (errorCode) {

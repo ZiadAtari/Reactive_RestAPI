@@ -25,20 +25,21 @@ This application is a reactive microservice built with Eclipse Vert.x. It differ
 
 
 
+
 ### How to Use:
 
-1. ##### GET /employees
+1. ##### GET /v3/employees
 
 **Function:** Receives list of all active employees
-**Command:** curl -X GET http://localhost:8888/employees
+**Command:** curl -X GET http://localhost:8888/v3/employees
 
 ##### 
 
-##### 2\. POST /employees
+##### 2\. POST /v3/employees
 
 **Function:** Creates a new employee \& Reactivates soft-deleted employee
 
-**Command:** curl -X POST http://localhost:8888/employees \\
+**Command:** curl -X POST http://localhost:8888/v3/employees \\
 
  	  -H "Content-Type: application/json" \\
 
@@ -54,9 +55,9 @@ This application is a reactive microservice built with Eclipse Vert.x. It differ
 
 
 
-3\. PUT /employees/:id
+##### 3\. PUT /v3/employees/:id
 **Function:** Updates existing employee details
-**Command:** curl -X PUT http://localhost:8888/employees/550e8400-e29b-41d4-a716-446655440000 \\
+**Command:** curl -X PUT http://localhost:8888/v3/employees/550e8400-e29b-41d4-a716-446655440000 \\
 
  	  -H "Content-Type: application/json" \\
 
@@ -76,12 +77,14 @@ This application is a reactive microservice built with Eclipse Vert.x. It differ
 
 **Function:** Soft-deletes employee
 
-**Command:** curl -X DELETE http://localhost:8888/employees/550e8400-e29b-41d4-a716-446655440000
+**Command:** curl -X DELETE http://localhost:8888/v3/employees/550e8400-e29b-41d4-a716-446655440000
 
 
 
 ### Changelog:
 
+
+* ###### v3.0.0 JWT Authentication & API versioning added
 * ###### v2.2.0 Refactoring & Documentation 
 * ###### v2.1.3 Polishing & Documentation 
 * ###### v2.1.2 Fixed Race condition for Delete & Post

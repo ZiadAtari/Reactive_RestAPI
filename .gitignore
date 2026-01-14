@@ -185,6 +185,7 @@ nbdist/
 !.vscode/extensions.json
 
 Planning/v2.1_Requriments
+<<<<<<< HEAD
 
 ### IDK ###
 .idea/compiler.xml
@@ -204,3 +205,8 @@ Run Payroll API.run.xml
 =======
 Planning/v2.1_Requriments
 >>>>>>> c8617fb (v2.0 Limiters and Breakers Added)
+=======
+demo/private_key_pkcs8.pem
+demo/private_key.pem
+demo/public_key.pem
+>>>>>>> 93bf75d (v3.0.0 JWT Authentication & API versioning added)
