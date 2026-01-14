@@ -82,6 +82,8 @@ This application is a reactive microservice built with Eclipse Vert.x. It differ
 
 ### Changelog:
 
+* ###### v2.2.0 Refactoring & Documentation 
+* ###### v2.1.3 Polishing & Documentation 
 * ###### v2.1.2 Fixed Race condition for Delete & Post
 * ###### v2.1.1 Added Event Bus to isolate repository and service logic from web layer
 * ###### v2.1.0 IP verification handler added

@@ -57,9 +57,9 @@ public class EmployeeVerticle extends AbstractVerticle {
             // Circuit Breaker configuration for fault tolerance against DB failures
             CircuitBreakerOptions cbOptions = new CircuitBreakerOptions()
                     .setMaxFailures(5) // If 5 consecutive failures occur, circuit opens
-                    .setTimeout(2000) // Timeout for each operation
+                    .setTimeout(200) // Timeout for each operation
                     .setFallbackOnFailure(false)
-                    .setResetTimeout(1000); // Wait 1s before attempting recovery
+                    .setResetTimeout(100); // Wait 1s before attempting recovery
 
             CircuitBreaker circuitBreaker = CircuitBreaker.create("api-circuit-breaker", vertx, cbOptions);
 
