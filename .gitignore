@@ -183,6 +183,7 @@ nbdist/
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
+<<<<<<< HEAD
 
 Planning/v2.1_Requriments
 <<<<<<< HEAD
@@ -210,3 +211,9 @@ demo/private_key_pkcs8.pem
 demo/private_key.pem
 demo/public_key.pem
 >>>>>>> 93bf75d (v3.0.0 JWT Authentication & API versioning added)
+=======
+Planning/v2.1_Requriments
+demo/private_key_pkcs8.pem
+demo/private_key.pem
+demo/public_key.pem
+>>>>>>> 329e1eebadbe44857c45bbb39a4317803033aca7
