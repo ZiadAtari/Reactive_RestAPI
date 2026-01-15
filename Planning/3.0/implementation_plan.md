@@ -90,6 +90,23 @@ To adhere to **Single Responsibility (SRP)** and **Dependency Inversion (DIP)**,
         ```
     *   This allows us to inject the **singleton** `TokenService` (shared cache) while scaling the HTTP handlers across event loops.
 
+---
+
+### Error Handling & Robustness
+
+#### [MODIFY] [ErrorCode.java](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/src/main/java/ziadatari/ReactiveAPI/exception/ErrorCode.java)
+*   Add `AUTH_SETUP_ERROR(500, "SEC_002", "...")`.
+
+#### [MODIFY] [MainVerticle.java](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/src/main/java/ziadatari/ReactiveAPI/main/MainVerticle.java)
+*   Wrap security initialization in try-catch to log a warning instead of failing startup.
+
+#### [MODIFY] [Rs256TokenService.java](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/src/main/java/ziadatari/ReactiveAPI/service/Rs256TokenService.java)
+*   Add latent error tracking to handle initialization failures at request-time.
+*   Wrap `generateToken` in try-catch to handle signing failures.
+
+#### [MODIFY] [JwtAuthenticationFilter.java](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/demo/src/main/java/com/example/demo/JwtAuthenticationFilter.java)
+*   Implement proactive public key validation and JSON error responses (`SEC_CFG_001`) for misconfigured server-side keys.
+
 ## Verification Plan
 
 ### Manual Verification

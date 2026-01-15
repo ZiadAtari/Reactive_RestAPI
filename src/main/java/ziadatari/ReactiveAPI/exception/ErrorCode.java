@@ -49,7 +49,9 @@ public enum ErrorCode {
 
   // --- SECURITY / VERIFICATION ERRORS ---
   /** Client IP is not authorized to access the resource. */
-  IP_VERIFICATION_FAILED(403, "SEC_001", "Client IP verification failed.");
+  IP_VERIFICATION_FAILED(403, "SEC_001", "Client IP verification failed."),
+  /** Authentication service initialization failure. */
+  AUTH_SETUP_ERROR(500, "SEC_002", "Failed to initialize authentication service. Please check RSA key configuration.");
 
   /** The HTTP status code to be returned to the client (e.g., 404). */
   private final int httpStatus;

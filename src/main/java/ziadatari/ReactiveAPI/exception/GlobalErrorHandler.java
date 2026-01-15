@@ -23,7 +23,7 @@ public class GlobalErrorHandler {
     // Case 1: Custom application exceptions (Business Logic failures)
     if (cause instanceof ServiceException) {
       ServiceException se = (ServiceException) cause;
-      reply(ctx, se.getErrorCode());
+      reply(ctx, se.getErrorCode(), se.getMessage());
     }
 
     // Case 2: JSON parsing failures
@@ -47,7 +47,18 @@ public class GlobalErrorHandler {
    * @param code the ErrorCode defining the response details
    */
   private static void reply(RoutingContext ctx, ErrorCode code) {
-    ApiError response = new ApiError(code);
+    reply(ctx, code, code.getMessage());
+  }
+
+  /**
+   * Helper method to send the error response to the client with a custom message.
+   *
+   * @param ctx           the current routing context
+   * @param code          the ErrorCode defining the response details
+   * @param customMessage a specific error message to override the default
+   */
+  private static void reply(RoutingContext ctx, ErrorCode code, String customMessage) {
+    ApiError response = new ApiError(code, customMessage);
 
     ctx.response()
         .setStatusCode(code.getHttpStatus())

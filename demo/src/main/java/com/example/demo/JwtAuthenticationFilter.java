@@ -19,9 +19,14 @@ import java.security.PublicKey;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.Base64;
 import java.util.Collections;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicReference;
 
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
+
+    private final AtomicReference<PublicKey> cachedPublicKey = new AtomicReference<>();
+    private boolean publicKeyInitializationFailed = false;
 
     private static final String PUBLIC_KEY_Str = "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA6U54T00uV729YqIE8/VC\r\n"
             + //
@@ -57,6 +62,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
 
+        // Check if we already know that the public key is invalid
+        if (publicKeyInitializationFailed && request.getRequestURI().startsWith("/v3/")) {
+            sendError(response, "Security Configuration Error", "Public Key is invalid or malformed", "SEC_CFG_001");
+            return;
+        }
+
         String header = request.getHeader("Authorization");
 
         if (header == null || !header.startsWith("Bearer ")) {
@@ -67,8 +78,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String token = header.substring(7);
 
         try {
+            PublicKey publicKey = cachedPublicKey.get();
+            if (publicKey == null) {
+                publicKey = getPublicKey();
+                cachedPublicKey.set(publicKey);
+            }
+
             Jws<Claims> claimsJws = Jwts.parserBuilder()
-                    .setSigningKey(getPublicKey())
+                    .setSigningKey(publicKey)
                     .setAllowedClockSkewSeconds(60) // Allow 60 seconds skew for clock differences
                     .build()
                     .parseClaimsJws(token);
@@ -85,11 +102,28 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             SecurityContextHolder.getContext().setAuthentication(authentication);
 
         } catch (Exception e) {
+            // Check if it's a configuration error (RSA key) or just a bad token
+            if (e.getMessage() != null && e.getMessage().contains("Invalid Public Key Configuration")) {
+                publicKeyInitializationFailed = true;
+                if (request.getRequestURI().startsWith("/v3/")) {
+                    sendError(response, "Security Configuration Error", "Public Key is invalid or malformed",
+                            "SEC_CFG_001");
+                    return;
+                }
+            }
             // Log error or just ignore. If auth fails, context is empty, and SecurityConfig
             // will reject /v3 access
             System.err.println("JWT Verification Failed: " + e.getMessage());
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    private void sendError(HttpServletResponse response, String error, String message, String code) throws IOException {
+        response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+        response.setContentType("application/json");
+        String json = String.format("{\"error\": \"%s\", \"message\": \"%s\", \"code\": \"%s\"}",
+                error, message, code);
+        response.getWriter().write(json);
     }
 }
