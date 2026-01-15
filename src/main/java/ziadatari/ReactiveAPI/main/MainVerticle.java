@@ -56,9 +56,6 @@ public class MainVerticle extends AbstractVerticle {
     vertx.deployVerticle(ziadatari.ReactiveAPI.repository.EmployeeVerticle.class.getName(), options)
         .compose(id -> {
           // 2. Setup JWT Auth
-          // Ideally, this key should be loaded from a secure vault or environment
-          // variable.
-          // For this specific 'Reactive' implementation, it is hardcoded to demonstrate
           // RS256 signing.
           String privateKey = "-----BEGIN PRIVATE KEY-----\r\n" +
               "MIIEvAIBADANBgkqhkiG9w0BAQEFAASCBKYwggSiAgEAAoIBAQDpTnhPTS5Xvb1i\r\n" + //

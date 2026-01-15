@@ -25,8 +25,8 @@ public class SecurityConfig {
                         .requestMatchers("/ip", "/v1/ip").permitAll() // Legacy endpoints open to everyone (Zero
                                                                       // verification)
                         .requestMatchers("/v3/**").authenticated() // New V3 endpoints require valid RS256 JWT
-                        .anyRequest().permitAll() // Default to permit or deny as needed, usually deny, but keeping
-                                                  // simple
+                        .anyRequest().permitAll() // Default to permit, usually deny
+
                 )
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
