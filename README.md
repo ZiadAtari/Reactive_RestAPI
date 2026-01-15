@@ -83,9 +83,11 @@ This application is a reactive microservice built with Eclipse Vert.x. It differ
 
 ### Changelog:
 
+#### V3: Authentication & Containerization
 * ###### v3.0.1 Exception Handling for Invalid Keys
 * ###### v3.0.0 JWT Authentication & API versioning added
 
+#### V2: API Safeguards and Improvements
 * ###### v2.2.0 Refactoring & Documentation 
 * ###### v2.1.3 Polishing & Documentation 
 * ###### v2.1.2 Fixed Race condition for Delete & Post
@@ -93,11 +95,12 @@ This application is a reactive microservice built with Eclipse Vert.x. It differ
 * ###### v2.1.0 IP verification handler added
 * ###### v2.0.1 Rate Limiting fixed for Race Conditions
 * ###### v2.0.0 Rate Limiting and Circuit Breaking added
-
+ 
+#### V1: Core Functionality
 * ###### v1.3.0 Duplicate POST Handling \& Reactivation added
 * ###### v1.2.0 Exception Handling added
 * ###### v1.1.0 Soft-deletion added
 * ###### v1.0.0 CURD Functionality Implemented
-
+#### V0: Initial Setup
 * ###### v0.2.0 Env Setup
 * ###### v0.1.0 Structure Setup

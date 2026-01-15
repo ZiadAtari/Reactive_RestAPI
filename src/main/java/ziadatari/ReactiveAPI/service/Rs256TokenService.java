@@ -18,7 +18,7 @@ public class Rs256TokenService implements TokenService {
     private final AtomicLong expirationTime = new AtomicLong(0);
     private final String initErrorMessage;
 
-    // Refresh token 5 minutes before expiration
+    // Refresh 5min b4 expiry
     private static final long REFRESH_BUFFER_SECONDS = 300;
 
     public Rs256TokenService(JWTAuth jwtAuth) {

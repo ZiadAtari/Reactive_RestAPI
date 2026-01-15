@@ -40,8 +40,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private PublicKey getPublicKey() {
         try {
             // Remove headers, newlines, and spaces to get raw Base64 string
-            // This 'manual' sanitization ensures we can copy-paste keys from PEM files
-            // without issues
             String sanitizedKey = PUBLIC_KEY_Str
                     .replaceAll("\\n", "")
                     .replaceAll("\\r", "")
@@ -86,13 +84,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             Jws<Claims> claimsJws = Jwts.parserBuilder()
                     .setSigningKey(publicKey)
-                    .setAllowedClockSkewSeconds(60) // Allow 60 seconds skew for clock differences
+                    .setAllowedClockSkewSeconds(60) // clock differences
                     .build()
                     .parseClaimsJws(token);
 
             Claims body = claimsJws.getBody();
-            // In a real scenario, you might extract username or roles here.
-            // For this demo, validity of the signature is enough to trust the service.
+            // validity of the signature to trust the service.
             String subject = body.getSubject();
 
             UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(

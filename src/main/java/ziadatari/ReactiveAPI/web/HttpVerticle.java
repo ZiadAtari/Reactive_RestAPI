@@ -56,7 +56,7 @@ public class HttpVerticle extends AbstractVerticle {
     router.route("/v3/*").handler(new VerificationHandler(webClient, circuitBreaker, tokenService, "/v3/ip", true));
 
     // --- API ROUTES ---
-    // V3 (Authenticated / New)
+    // V3 (Authenticated)
     router.get("/v3/employees").handler(controller::getAll);
     router.post("/v3/employees").handler(controller::create);
     router.put("/v3/employees/:id").handler(controller::update);
