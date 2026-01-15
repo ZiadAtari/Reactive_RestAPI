@@ -89,14 +89,24 @@ public class MainVerticle extends AbstractVerticle {
               "bGb/wWBYjM/QSnwcnPsePQ==\r\n" +
               "-----END PRIVATE KEY-----";
 
-          io.vertx.ext.auth.jwt.JWTAuthOptions jwtOptions = new io.vertx.ext.auth.jwt.JWTAuthOptions()
-              .addPubSecKey(new io.vertx.ext.auth.PubSecKeyOptions()
-                  .setAlgorithm("RS256")
-                  .setBuffer(privateKey));
+          io.vertx.ext.auth.jwt.JWTAuth jwtAuth;
+          ziadatari.ReactiveAPI.service.Rs256TokenService tokenService;
 
-          io.vertx.ext.auth.jwt.JWTAuth jwtAuth = io.vertx.ext.auth.jwt.JWTAuth.create(vertx, jwtOptions);
-          ziadatari.ReactiveAPI.service.Rs256TokenService tokenService = new ziadatari.ReactiveAPI.service.Rs256TokenService(
-              jwtAuth);
+          try {
+            io.vertx.ext.auth.jwt.JWTAuthOptions jwtOptions = new io.vertx.ext.auth.jwt.JWTAuthOptions()
+                .addPubSecKey(new io.vertx.ext.auth.PubSecKeyOptions()
+                    .setAlgorithm("RS256")
+                    .setBuffer(privateKey));
+
+            jwtAuth = io.vertx.ext.auth.jwt.JWTAuth.create(vertx, jwtOptions);
+            tokenService = new ziadatari.ReactiveAPI.service.Rs256TokenService(
+                jwtAuth);
+          } catch (Exception e) {
+            System.err.println("WARNING: Failed to initialize JWT Auth Service: " + e.getMessage());
+            System.err.println("WARNING: API will still start, but /v3/ (authenticated) routes will fail.");
+            jwtAuth = null;
+            tokenService = new ziadatari.ReactiveAPI.service.Rs256TokenService(e.getMessage());
+          }
 
           // 3. Deploy HttpVerticle with TokenService
           // We use setInstances(1) in a loop because we are passing a specific instance

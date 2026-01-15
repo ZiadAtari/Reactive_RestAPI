@@ -59,7 +59,26 @@ The controller provides the verification result.
     *   **Latency**: 1% chance of 500ms-5000ms delay.
     *   **Chaos**: 1% chance of returning random errors (408, 429, 503, 500).
 
-## 3. Summary Diagram (End-to-End)
+## 4. Robust Error Handling (RSA Key Issues)
+
+Specific handling is implemented to address malformed or mismatched RSA keys, preventing generic "500 Internal Server Error" responses.
+
+### 4.1 Client-Side (ReactiveAPI)
+*   **Startup Validation**: `MainVerticle` wraps `JWTAuth` initialization in a try-catch. Failure to parse the private key logs a WARNING and initializes the `Rs256TokenService` in an error state **without failing the deployment**.
+*   **Generation Safety**: `Rs256TokenService` checks for initialization errors during `getToken()`. If it was initialized with an error (or if signing fails at runtime), it returns a `ServiceException` with `ErrorCode.AUTH_SETUP_ERROR` (SEC_002).
+
+### 4.2 Server-Side (Demo Service)
+*   **Proactive Detection**: `JwtAuthenticationFilter` attempts to load the public key on the first request and caches it.
+*   **JSON Error Response**: If key loading fails, the filter intercepts `/v3/**` requests and returns a manual JSON payload:
+    ```json
+    {
+      "error": "Security Configuration Error",
+      "message": "Public Key is invalid or malformed",
+      "code": "SEC_CFG_001"
+    }
+    ```
+
+## 5. Summary Diagram (End-to-End)
 ```mermaid
 sequenceDiagram
     participant User
@@ -78,8 +97,9 @@ sequenceDiagram
         DemoService->>DemoService: IpController.getIpAuthenticated()
         DemoService-->>ReactiveAPI: 200 OK
         ReactiveAPI-->>User: 200 OK
-    else Signature Invalid
-        DemoService-->>ReactiveAPI: 403 Forbidden
-        ReactiveAPI-->>User: 403 Forbidden
+    else Signature Invalid / Key Issues
+        note right of DemoService: SEC_CFG_001 if setup fails
+        DemoService-->>ReactiveAPI: 403 Forbidden / 500 Error
+        ReactiveAPI-->>User: 403 Forbidden / 500 Error
     end
 ```
