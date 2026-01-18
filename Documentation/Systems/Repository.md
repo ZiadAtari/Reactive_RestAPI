@@ -24,6 +24,19 @@ The Repository system manages data persistence and business logic orchestration 
 - **Connection Pool**: Initializes a `Pool` with `setMaxSize(10)`.
 - **Logging**: Adopts standard SLF4J logging for deployment and operational status.
 
+### [UserVerticle](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/src/main/java/ziadatari/ReactiveAPI/repository/UserVerticle.java)
+- **Purpose**: Manages user authentication and credential verification.
+- **Security**: Offloads CPU-intensive `BCrypt` password hashing to a blocking executor to prevent event loop blocking.
+- **Flow**:
+    - Listens on `users.authenticate`.
+    - Retrieves user from `UserRepository`.
+    - Verifies password hash.
+    - Returns minimal user details on success or fails with `UNAUTHORIZED`.
+
+### [UserRepository](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/src/main/java/ziadatari/ReactiveAPI/repository/UserRepository.java)
+- **Purpose**: Data access for the `users` table.
+- **Queries**: `findByUsername` to fetch credentials.
+
 ### [EmployeeService](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/src/main/java/ziadatari/ReactiveAPI/service/EmployeeService.java)
 - **Purpose**: Contains business logic and validation rules.
 - **Logic**:

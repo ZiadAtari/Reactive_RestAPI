@@ -11,4 +11,12 @@ public interface TokenService {
      * @return a Future containing the token string
      */
     Future<String> getToken();
+
+    /**
+     * Generates a unique JWT token for a specific user.
+     *
+     * @param username the username to include in the token claims
+     * @return a Future containing the token string
+     */
+    Future<String> generateUserToken(String username);
 }

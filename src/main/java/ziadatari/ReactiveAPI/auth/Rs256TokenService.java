@@ -85,4 +85,35 @@ public class Rs256TokenService implements TokenService {
                     "Token generation failed: " + e.getMessage()));
         }
     }
+
+    @Override
+    public Future<String> generateUserToken(String username) {
+        if (initErrorMessage != null) {
+            return Future.failedFuture(new ServiceException(ErrorCode.AUTH_SETUP_ERROR,
+                    "Authentication service failed to initialize: " + initErrorMessage));
+        }
+
+        long now = Instant.now().getEpochSecond();
+        // Token valid for 15 minutes
+        int expiresInSeconds = 900;
+
+        JWTOptions options = new JWTOptions()
+                .setAlgorithm("RS256")
+                .setExpiresInSeconds(expiresInSeconds)
+                .setIgnoreExpiration(false);
+
+        JsonObject claims = new JsonObject()
+                .put("sub", username)
+                .put("role", "user"); // Simple role
+
+        try {
+            String newToken = jwtAuth.generateToken(claims, options);
+            logger.info("Generated User JWT for '{}'. Expires in {} seconds", username, expiresInSeconds);
+            return Future.succeededFuture(newToken);
+        } catch (Exception e) {
+            logger.error("Failed to generate User JWT", e);
+            return Future.failedFuture(new ServiceException(ErrorCode.INTERNAL_SERVER_ERROR,
+                    "Token generation failed: " + e.getMessage()));
+        }
+    }
 }

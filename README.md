@@ -84,6 +84,7 @@ This application is a reactive microservice built with Eclipse Vert.x. It differ
 ### Changelog:
 
 #### V3: Authentication & Containerization
+* ###### v3.2.0 User Login added
 * ###### v3.1.0 AuthVerticle added and refactored auth logic 
 * ###### v3.0.3 Expanded Documentation folder 
 * ###### v3.0.2 Polishing & Bug fixes

@@ -45,6 +45,7 @@ public class HttpVerticle extends AbstractVerticle {
 
     // --- CONTROLLER ---
     EmployeeController controller = new EmployeeController(vertx);
+    AuthController authController = new AuthController(vertx);
 
     // --- ROUTER & MIDDLEWARE ---
     Router router = Router.router(vertx);
@@ -56,7 +57,7 @@ public class HttpVerticle extends AbstractVerticle {
     router.route().handler(new RateLimitHandler(vertx, 100, 1000));
 
     // 3. Routing and Middleware setup
-    // Config: 2000ms timeout, 5000ms reset, 3 failures max
+    // Config: 500ms timeout, 800ms reset, 5 failures max
     CustomCircuitBreaker circuitBreaker = new CustomCircuitBreaker(vertx, 500, 800, 5);
 
     // V1 Middlewares: No Auth verification calling /v1/ip
@@ -65,12 +66,29 @@ public class HttpVerticle extends AbstractVerticle {
     // V3 Middlewares: Auth verification calling /v3/ip
     router.route("/v3/*").handler(new VerificationHandler(webClient, circuitBreaker, "/v3/ip", true));
 
+    // JWT Auth Handler for protected routes
+    JwtAuthHandler jwtAuthHandler = new JwtAuthHandler(vertx, config());
+
     // --- API ROUTES ---
+
+    // Login
+    router.post("/login").handler(authController::login);
+
     // V3 (Authenticated)
     router.get("/v3/employees").handler(controller::getAll);
-    router.post("/v3/employees").handler(controller::create);
-    router.put("/v3/employees/:id").handler(controller::update);
-    router.delete("/v3/employees/:id").handler(controller::delete);
+    // Protected Mutations
+    router.post("/v3/employees").handler(jwtAuthHandler).handler(ctx -> {
+      logger.debug("Executing POST /v3/employees (Auth passed)");
+      controller.create(ctx);
+    });
+    router.put("/v3/employees/:id").handler(jwtAuthHandler).handler(ctx -> {
+      logger.debug("Executing PUT /v3/employees (Auth passed)");
+      controller.update(ctx);
+    });
+    router.delete("/v3/employees/:id").handler(jwtAuthHandler).handler(ctx -> {
+      logger.debug("Executing DELETE /v3/employees (Auth passed)");
+      controller.delete(ctx);
+    });
 
     // V1 (Legacy)
     router.get("/v1/employees").handler(controller::getAll);

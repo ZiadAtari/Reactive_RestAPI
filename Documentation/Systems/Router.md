@@ -21,7 +21,19 @@ The Router system manages the HTTP interface, request routing, and middleware in
     3. Requests action from `EmployeeVerticle` via Event Bus.
     4. Formats success response with operation metadata and timestamp.
 
+### [AuthController](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/src/main/java/ziadatari/ReactiveAPI/web/AuthController.java)
+- **Purpose**: Handles user login requests (`POST /login`).
+- **Workflow**:
+    1. Validates username/password presence.
+    2. requests authentication from `UserVerticle`.
+    3. requests token issuance from `AuthVerticle`.
+    4. Returns JWT token to client.
+
 ### Middleware Handlers
+- **[JwtAuthHandler](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/src/main/java/ziadatari/ReactiveAPI/web/JwtAuthHandler.java)**:
+    - Protects `/v3/*` mutation routes.
+    - Verifies `Authorization: Bearer <token>` header using local RSA Public Key.
+    - Fails with `UNAUTHORIZED` if invalid.
 - **[RateLimitHandler](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/src/main/java/ziadatari/ReactiveAPI/auth/RateLimitHandler.java)**:
     - Implements a fixed-window rate limiting algorithm.
     - Uses Vert.x `SharedData` (`LocalMap`) to track request counts across event loops safely.

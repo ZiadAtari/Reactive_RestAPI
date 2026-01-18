@@ -35,7 +35,19 @@ public class GlobalErrorHandler {
       reply(ctx, ErrorCode.INVALID_JSON_FORMAT);
     }
 
-    // Case 3: Unexpected system-level failures
+    // Case 3: Event Bus Failures (ReplyException)
+    else if (cause instanceof io.vertx.core.eventbus.ReplyException) {
+      io.vertx.core.eventbus.ReplyException re = (io.vertx.core.eventbus.ReplyException) cause;
+      int statusCode = re.failureCode();
+      if (statusCode >= 400 && statusCode < 600) {
+        reply(ctx, statusCode, re.getMessage());
+      } else {
+        logger.error("Event Bus Failure", cause);
+        reply(ctx, ErrorCode.INTERNAL_SERVER_ERROR);
+      }
+    }
+
+    // Case 4: Unexpected system-level failures
     else {
       logger.error("CRITICAL FAILURE", cause);
       reply(ctx, ErrorCode.INTERNAL_SERVER_ERROR);
@@ -65,6 +77,19 @@ public class GlobalErrorHandler {
 
     ctx.response()
         .setStatusCode(code.getHttpStatus())
+        .putHeader("content-type", "application/json")
+        .end(response.toJson().encode());
+  }
+
+  /**
+   * Helper method to send the error response to the client with a custom status
+   * and message.
+   */
+  private static void reply(RoutingContext ctx, int statusCode, String message) {
+    ApiError response = new ApiError(statusCode, "ERR_" + statusCode, message);
+
+    ctx.response()
+        .setStatusCode(statusCode)
         .putHeader("content-type", "application/json")
         .end(response.toJson().encode());
   }

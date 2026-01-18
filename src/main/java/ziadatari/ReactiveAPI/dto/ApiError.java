@@ -46,6 +46,21 @@ public class ApiError {
   }
 
   /**
+   * Constructs an ApiError using raw status code and message.
+   * Useful for internal errors or mapped proxy errors.
+   *
+   * @param statusCode   the HTTP status code
+   * @param errorCodeStr the internal error code string
+   * @param message      the error message
+   */
+  public ApiError(int statusCode, String errorCodeStr, String message) {
+    this.status = statusCode;
+    this.errorCode = errorCodeStr;
+    this.message = message;
+    this.timestamp = Instant.now().toString();
+  }
+
+  /**
    * Converts the ApiError object to a Vert.x JsonObject.
    *
    * @return a JsonObject representation of the error
