@@ -53,7 +53,15 @@ public enum ErrorCode {
   /** Authentication service initialization failure. */
   AUTH_SETUP_ERROR(500, "SEC_002", "Failed to initialize authentication service. Please check RSA key configuration."),
   /** Invalid credentials provided. */
-  UNAUTHORIZED(401, "SEC_003", "Invalid username or password.");
+  INVALID_CREDENTIALS(401, "SEC_003", "Invalid username or password."),
+  /** Required credentials are missing. */
+  CREDENTIALS_REQUIRED(400, "VAL_005", "Username and password are required."),
+  /** Authentication token is missing. */
+  TOKEN_MISSING(401, "SEC_004", "Authentication token is missing."),
+  /** Authentication token is invalid or malformed. */
+  TOKEN_INVALID(401, "SEC_005", "Authentication token is invalid or malformed."),
+  /** Authentication token has expired. */
+  TOKEN_EXPIRED(401, "SEC_006", "Authentication token has expired.");
 
   /** The HTTP status code to be returned to the client (e.g., 404). */
   private final int httpStatus;

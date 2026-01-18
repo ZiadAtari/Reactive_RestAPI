@@ -55,6 +55,16 @@ This document details the successful implementation of the **User-Centric Login 
         *   Unlike issuance, verification happens locally in the HTTP handler for maximum performance (no Event Bus overhead for every request).
     *   **Scope**: Applied to `/v3/*` mutation routes.
 
+### D. External Services (Demo API)
+**Role**: IP Verification Service (Spring Boot)
+
+The **Demo API** is a separate service used to verify client IP addresses. It plays a complementary role to the User Login system:
+
+1.  **User Authentication**: The user logs in to get a **User Token** to prove *who they are* to the Reactive API.
+2.  **IP Verification**: The Reactive API calls the Demo API to verify the *request source* (IP address).
+    *   This call is secured by a separate **Service Token** (machine-to-machine), also signed by `Rs256TokenService`.
+    *   This happens in the `VerificationHandler` middleware, which runs *before* the request reaches the controller logic but *after* the `JwtAuthHandler` verifies the User Token.
+
 ---
 
 ## 3. Request Flow

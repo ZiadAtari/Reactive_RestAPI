@@ -48,7 +48,7 @@ public class JwtAuthHandler implements Handler<RoutingContext> {
 
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             logger.warn("Request missing Bearer token for protected route: {}", ctx.request().path());
-            GlobalErrorHandler.handle(ctx, new ServiceException(ErrorCode.UNAUTHORIZED));
+            GlobalErrorHandler.handle(ctx, new ServiceException(ErrorCode.TOKEN_MISSING));
             return;
         }
 
@@ -61,7 +61,10 @@ public class JwtAuthHandler implements Handler<RoutingContext> {
                 })
                 .onFailure(err -> {
                     logger.warn("JWT Verification failed: {}", err.getMessage());
-                    GlobalErrorHandler.handle(ctx, new ServiceException(ErrorCode.UNAUTHORIZED));
+                    // Distinguish between expired and invalid if possible, or use general INVALID
+                    ErrorCode errorCode = err.getMessage().contains("Expired") ? ErrorCode.TOKEN_EXPIRED
+                            : ErrorCode.TOKEN_INVALID;
+                    GlobalErrorHandler.handle(ctx, new ServiceException(errorCode));
                 });
     }
 }

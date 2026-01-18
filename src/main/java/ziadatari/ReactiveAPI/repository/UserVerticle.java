@@ -70,7 +70,7 @@ public class UserVerticle extends AbstractVerticle {
         return userRepository.findByUsername(username)
                 .compose(user -> {
                     if (user == null) {
-                        return Future.failedFuture(new ServiceException(ErrorCode.UNAUTHORIZED, "Invalid credentials"));
+                        return Future.failedFuture(new ServiceException(ErrorCode.INVALID_CREDENTIALS));
                     }
 
                     // Offload blocking BCrypt check
@@ -78,7 +78,7 @@ public class UserVerticle extends AbstractVerticle {
                         if (BCrypt.checkpw(password, user.getPasswordHash())) {
                             promise.complete(user);
                         } else {
-                            promise.fail(new ServiceException(ErrorCode.UNAUTHORIZED, "Invalid credentials"));
+                            promise.fail(new ServiceException(ErrorCode.INVALID_CREDENTIALS));
                         }
                     }, false); // false = not ordered
                 });

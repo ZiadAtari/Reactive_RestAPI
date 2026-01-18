@@ -93,7 +93,6 @@ public class Rs256TokenService implements TokenService {
                     "Authentication service failed to initialize: " + initErrorMessage));
         }
 
-        long now = Instant.now().getEpochSecond();
         // Token valid for 15 minutes
         int expiresInSeconds = 900;
 

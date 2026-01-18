@@ -3,17 +3,15 @@ package ziadatari.ReactiveAPI.web;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import ziadatari.ReactiveAPI.exception.ErrorCode;
 import ziadatari.ReactiveAPI.exception.GlobalErrorHandler;
+import ziadatari.ReactiveAPI.exception.ServiceException;
 
 /**
  * Controller for authentication-related endpoints (Login).
  */
 public class AuthController {
 
-    private static final Logger logger = LoggerFactory.getLogger(AuthController.class);
     private final Vertx vertx;
 
     public AuthController(Vertx vertx) {
@@ -29,9 +27,7 @@ public class AuthController {
     public void login(RoutingContext ctx) {
         JsonObject body = ctx.body().asJsonObject();
         if (body == null || body.isEmpty()) {
-            GlobalErrorHandler.handle(ctx, new IllegalArgumentException("Request body is empty")); // Will map to VAL or
-                                                                                                   // REQ error if
-                                                                                                   // handled
+            GlobalErrorHandler.handle(ctx, new ServiceException(ErrorCode.EMPTY_BODY));
             return;
         }
 
@@ -39,7 +35,7 @@ public class AuthController {
         String password = body.getString("password");
 
         if (username == null || password == null) {
-            GlobalErrorHandler.handle(ctx, new IllegalArgumentException("Username and password are required"));
+            GlobalErrorHandler.handle(ctx, new ServiceException(ErrorCode.CREDENTIALS_REQUIRED));
             return;
         }
 
