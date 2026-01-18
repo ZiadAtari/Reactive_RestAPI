@@ -11,6 +11,8 @@ import io.vertx.mysqlclient.MySQLBuilder;
 import io.vertx.mysqlclient.MySQLConnectOptions;
 import io.vertx.sqlclient.Pool;
 import io.vertx.sqlclient.PoolOptions;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import ziadatari.ReactiveAPI.dto.EmployeeDTO;
 import ziadatari.ReactiveAPI.exception.ErrorCode;
 import ziadatari.ReactiveAPI.exception.ServiceException;
@@ -25,6 +27,7 @@ import ziadatari.ReactiveAPI.service.EmployeeService;
  */
 public class EmployeeVerticle extends AbstractVerticle {
 
+    private static final Logger logger = LoggerFactory.getLogger(EmployeeVerticle.class);
     private EmployeeService service;
 
     /**
@@ -58,17 +61,16 @@ public class EmployeeVerticle extends AbstractVerticle {
             // We use a relatively short timeout to fail fast if the DB is under load
             CircuitBreakerOptions cbOptions = new CircuitBreakerOptions()
                     .setMaxFailures(5) // If 5 consecutive failures occur, circuit opens
-                    .setTimeout(200) // Timeout for each operation (200ms is aggressive but ensures responsiveness)
+                    .setTimeout(200) // Timeout for each operation (200ms as requested)
                     .setFallbackOnFailure(false) // We propagate errors instead of falling back to default values
                     .setResetTimeout(100); // Wait 1s before attempting recovery (half-open state)
 
             CircuitBreaker circuitBreaker = CircuitBreaker.create("api-circuit-breaker", vertx, cbOptions);
 
             // Circuit status logging
-            circuitBreaker
-                    .openHandler(v -> System.out.println("CIRCUIT BREAKER: OPENED (Service failing or timing out)"));
-            circuitBreaker.closeHandler(v -> System.out.println("CIRCUIT BREAKER: CLOSED (Service recovered)"));
-            circuitBreaker.halfOpenHandler(v -> System.out.println("CIRCUIT BREAKER: HALF-OPEN (Testing recovery...)"));
+            circuitBreaker.openHandler(v -> logger.warn("CIRCUIT BREAKER: OPENED (Service failing or timing out)"));
+            circuitBreaker.closeHandler(v -> logger.info("CIRCUIT BREAKER: CLOSED (Service recovered)"));
+            circuitBreaker.halfOpenHandler(v -> logger.info("CIRCUIT BREAKER: HALF-OPEN (Testing recovery...)"));
 
             // Initialize repository and service
             EmployeeRepository repository = new EmployeeRepository(dbPool);
@@ -80,10 +82,11 @@ public class EmployeeVerticle extends AbstractVerticle {
             vertx.eventBus().consumer("employees.update", this::updateEmployee);
             vertx.eventBus().consumer("employees.delete", this::deleteEmployee);
 
-            System.out.println("EmployeeVerticle Deployed and Listening on Event Bus");
+            logger.info("EmployeeVerticle Deployed and Listening on Event Bus");
             startPromise.complete();
 
         } catch (Exception e) {
+            logger.error("Failed to start EmployeeVerticle", e);
             startPromise.fail(e);
         }
     }
@@ -123,7 +126,6 @@ public class EmployeeVerticle extends AbstractVerticle {
                 handleError(message, err);
             });
         } catch (Exception e) {
-            e.printStackTrace();
             handleError(message, e);
         }
     }
@@ -175,6 +177,7 @@ public class EmployeeVerticle extends AbstractVerticle {
             // Send back the unique error code's ordinal for numeric identification
             message.fail(se.getErrorCode().ordinal(), se.getMessage());
         } else {
+            logger.error("Internal Server Error in EmployeeVerticle", err);
             message.fail(ErrorCode.INTERNAL_SERVER_ERROR.ordinal(), err.getMessage());
         }
     }

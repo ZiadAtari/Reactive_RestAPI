@@ -1,4 +1,4 @@
-package ziadatari.ReactiveAPI.web;
+package ziadatari.ReactiveAPI.auth;
 
 import io.vertx.core.Handler;
 import io.vertx.core.json.JsonObject;
@@ -7,6 +7,7 @@ import io.vertx.ext.web.client.WebClient;
 import ziadatari.ReactiveAPI.exception.ErrorCode;
 import ziadatari.ReactiveAPI.exception.GlobalErrorHandler;
 import ziadatari.ReactiveAPI.exception.ServiceException;
+import ziadatari.ReactiveAPI.web.CustomCircuitBreaker;
 
 /**
  * Middleware handler for verifying the client's IP address against an external
@@ -17,7 +18,6 @@ public class VerificationHandler implements Handler<RoutingContext> {
 
     private final WebClient webClient;
     private final CustomCircuitBreaker circuitBreaker;
-    private final ziadatari.ReactiveAPI.service.TokenService tokenService;
     private final String verificationPath;
     private final boolean requireAuth;
 
@@ -26,17 +26,14 @@ public class VerificationHandler implements Handler<RoutingContext> {
      *
      * @param webClient        client to make external requests
      * @param circuitBreaker   circuit breaker to protect against external failures
-     * @param tokenService     service to provide auth tokens (can be null if
-     *                         requireAuth is false)
      * @param verificationPath the path to call on the demo service (e.g. /v1/ip or
      *                         /v3/ip)
      * @param requireAuth      whether to include a JWT token in the request
      */
     public VerificationHandler(WebClient webClient, CustomCircuitBreaker circuitBreaker,
-            ziadatari.ReactiveAPI.service.TokenService tokenService, String verificationPath, boolean requireAuth) {
+            String verificationPath, boolean requireAuth) {
         this.webClient = webClient;
         this.circuitBreaker = circuitBreaker;
-        this.tokenService = tokenService;
         this.verificationPath = verificationPath;
         this.requireAuth = requireAuth;
     }
@@ -51,10 +48,17 @@ public class VerificationHandler implements Handler<RoutingContext> {
         String ip = ctx.request().remoteAddress().host();
 
         if (requireAuth) {
-            tokenService.getToken()
-                    .onSuccess(token -> performVerification(ctx, ip, token))
-                    .onFailure(err -> GlobalErrorHandler.handle(ctx,
-                            new ServiceException(ErrorCode.INTERNAL_SERVER_ERROR, "Auth Token Error")));
+            // Fetch token asynchronously via Event Bus from AuthVerticle
+            ctx.vertx().eventBus().request("auth.token.get", null, reply -> {
+                if (reply.succeeded()) {
+                    String token = (String) reply.result().body();
+                    performVerification(ctx, ip, token);
+                } else {
+                    GlobalErrorHandler.handle(ctx,
+                            new ServiceException(ErrorCode.INTERNAL_SERVER_ERROR,
+                                    "Auth Token Error: " + reply.cause().getMessage()));
+                }
+            });
         } else {
             performVerification(ctx, ip, null);
         }

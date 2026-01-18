@@ -1,4 +1,4 @@
-package ziadatari.ReactiveAPI.web;
+package ziadatari.ReactiveAPI.auth;
 
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;

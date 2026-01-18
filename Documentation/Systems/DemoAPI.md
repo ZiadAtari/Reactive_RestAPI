@@ -35,9 +35,9 @@ The Demo API is a Spring Boot companion service that acts as an external verific
 
 ## Integration in Reactive API
 
-The [VerificationHandler](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/src/main/java/ziadatari/ReactiveAPI/web/VerificationHandler.java) orchestrates the calls to this service.
+The [VerificationHandler](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/src/main/java/ziadatari/ReactiveAPI/auth/VerificationHandler.java) orchestrates the calls to this service.
 
 ### Resilience Patterns
 - **Timeouts**: The Reactive API sets a strict execution timeout.
-- **Circuit Breaking**: Calls are wrapped in a `CustomCircuitBreaker`. If the Demo API begins failing (due to the 1% simulated fault injection), the circuit opens to protect the Reactive API from blocking event threads.
-- **Auth Bridging**: The handler automatically requests a token from `Rs256TokenService` when accessing `V3` routes, ensuring seamless authenticated communication.
+- **Circuit Breaking**: Calls are wrapped in a `CustomCircuitBreaker`.
+- **Auth Bridging**: The handler requests tokens via the **Event Bus** (`auth.token.get`) when accessing `V3` routes, ensuring decoupled authenticated communication.

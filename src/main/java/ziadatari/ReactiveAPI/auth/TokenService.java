@@ -1,4 +1,4 @@
-package ziadatari.ReactiveAPI.service;
+package ziadatari.ReactiveAPI.auth;
 
 import io.vertx.core.Future;
 

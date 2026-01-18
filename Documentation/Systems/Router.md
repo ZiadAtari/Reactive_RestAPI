@@ -10,8 +10,8 @@ The Router system manages the HTTP interface, request routing, and middleware in
 - **Key Features**:
     - Registers global error handlers and body parsers.
     - Mounts versioned API routes (`/v1/*` for legacy, `/v3/*` for authenticated).
-    - Injects dependencies like `TokenService` and `WebClient`.
-    - Uses a `CompositeFuture` during startup to track multi-instance deployment status.
+    - Uses a `Future.all` during startup to track deployment status.
+    - **Performance**: Configures the `WebClient` with a connection pool (max 100 connections) for high-concurrency external verification.
 
 ### [EmployeeController](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/src/main/java/ziadatari/ReactiveAPI/web/EmployeeController.java)
 - **Purpose**: Maps HTTP requests to Event Bus messages and standardizes success responses.
@@ -22,13 +22,12 @@ The Router system manages the HTTP interface, request routing, and middleware in
     4. Formats success response with operation metadata and timestamp.
 
 ### Middleware Handlers
-- **[RateLimitHandler](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/src/main/java/ziadatari/ReactiveAPI/web/RateLimitHandler.java)**:
+- **[RateLimitHandler](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/src/main/java/ziadatari/ReactiveAPI/auth/RateLimitHandler.java)**:
     - Implements a fixed-window rate limiting algorithm.
     - Uses Vert.x `SharedData` (`LocalMap`) to track request counts across event loops safely.
-    - Employs atomic "Compare-and-Swap" logic to prevent race conditions.
-- **[VerificationHandler](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/src/main/java/ziadatari/ReactiveAPI/web/VerificationHandler.java)**:
+- **[VerificationHandler](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/src/main/java/ziadatari/ReactiveAPI/auth/VerificationHandler.java)**:
     - Performs service-to-service IP verification using an external "Demo" API.
-    - Conditionally injects JWT Bearer tokens for `V3` routes.
+    - Decouples token retrieval using the **Event Bus**.
 
 ## Resilience: [CustomCircuitBreaker](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/src/main/java/ziadatari/ReactiveAPI/web/CustomCircuitBreaker.java)
 - **Purpose**: Protective wrapper for the `WebClient` during external service calls.

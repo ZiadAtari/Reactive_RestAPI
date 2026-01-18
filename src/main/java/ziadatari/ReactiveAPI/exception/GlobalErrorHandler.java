@@ -3,6 +3,8 @@ package ziadatari.ReactiveAPI.exception;
 import io.vertx.core.json.DecodeException;
 
 import io.vertx.ext.web.RoutingContext;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import ziadatari.ReactiveAPI.dto.ApiError;
 
 /**
@@ -11,6 +13,8 @@ import ziadatari.ReactiveAPI.dto.ApiError;
  * consistent JSON error responses.
  */
 public class GlobalErrorHandler {
+
+  private static final Logger logger = LoggerFactory.getLogger(GlobalErrorHandler.class);
 
   /**
    * Routes an exception to the appropriate handling logic.
@@ -33,8 +37,7 @@ public class GlobalErrorHandler {
 
     // Case 3: Unexpected system-level failures
     else {
-      System.err.println("CRITICAL FAILURE: " + cause.getMessage());
-      cause.printStackTrace();
+      logger.error("CRITICAL FAILURE", cause);
       reply(ctx, ErrorCode.INTERNAL_SERVER_ERROR);
     }
 

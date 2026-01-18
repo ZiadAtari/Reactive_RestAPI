@@ -51,6 +51,9 @@ public class EmployeeController {
   public void create(RoutingContext ctx) {
     try {
       JsonObject body = ctx.body().asJsonObject();
+      if (body == null) {
+        throw new ServiceException(ErrorCode.EMPTY_BODY);
+      }
 
       // Preliminary validation: attempt DTO parsing to catch format errors early.
       EmployeeDTO.fromJson(body);
@@ -81,6 +84,9 @@ public class EmployeeController {
 
     try {
       JsonObject body = ctx.body().asJsonObject();
+      if (body == null) {
+        throw new ServiceException(ErrorCode.EMPTY_BODY);
+      }
       // Inject path ID into payload for unified Event Bus transmission
       JsonObject payload = body.copy().put("id", id);
 

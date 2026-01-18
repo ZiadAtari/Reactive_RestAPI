@@ -4,21 +4,27 @@ The Authentication system provides secure service-to-service communication using
 
 ## Components
 
-### [Rs256TokenService](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/src/main/java/ziadatari/ReactiveAPI/service/Rs256TokenService.java)
+### [AuthVerticle](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/src/main/java/ziadatari/ReactiveAPI/auth/AuthVerticle.java)
+- **Purpose**: Specialized verticle for JWT management and token issuance.
+- **Responsibilities**:
+    - **Key Normalization**: Reconstructs RSA PEM keys from environment variables (handles single-line formats).
+    - **Event Bus Listener**: Consumes `auth.token.get` requests.
+    - **Encapsulation**: Owns the `Rs256TokenService`.
+
+### [Rs256TokenService](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/src/main/java/ziadatari/ReactiveAPI/auth/Rs256TokenService.java)
 - **Purpose**: Manages the life-cycle of JWT tokens for external API calls.
 - **Key Features**:
     - **Token Generation**: Signs tokens using an RSA Private Key.
-    - **Caching**: Stores the generated token in an `AtomicReference` to minimize CPU-intensive signing operations.
-    - **Thread Safety**: Uses lock-free primitives (`AtomicReference`, `AtomicLong`) to ensure safe access across multiple event loops.
-    - **Refresh Logic**: Automatically re-generates the token when it is within 5 minutes (`REFRESH_BUFFER_SECONDS = 300`) of expiration.
-    - **Error Handling**: Gracefully handles initialization failures (e.g., malformed RSA keys), allowing the system to start with restricted functionality by returning a `ServiceException` with `AUTH_SETUP_ERROR`.
+    - **Caching**: Stores the generated token in an `AtomicReference`.
+    - **Logging**: Uses SLF4J for structured operational logging.
+    - **Refresh Logic**: Automatically re-generates tokens with a 5-minute buffer.
 
 ### [MainVerticle](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/src/main/java/ziadatari/ReactiveAPI/main/MainVerticle.java)
-- **Purpose**: Initializes the `JWTAuth` provider and injects the `TokenService` into the web layer.
+- **Purpose**: Orchestrates the deployment of the `AuthVerticle`.
 - **Boot Flow**:
-    1. Loads the RSA Private Key from an environment variable or hardcoded default.
-    2. Configures `JWTAuthOptions` with the provider.
-    3. Handles setup exceptions by providing a "dummy" or "failed" token service that logs warnings instead of crashing.
+    1. Retrieves the `RSA_PRIVATE_KEY` from environment variables.
+    2. Deploys `AuthVerticle` with the key provided in the configuration object.
+    3. Handles deployment failures globally.
 
 ## Secure Communication Flow
 
@@ -39,6 +45,8 @@ graph TD
 - **Private Key**: Located in the Reactive API (`MainVerticle.java`).
 
 ## Integration in Web Layer
-The `VerificationHandler` in the `HttpVerticle` uses the `TokenService` to fetch a valid token before making calls to the `/v3/ip` endpoint of the Demo service.
+The `VerificationHandler` in the `auth` package uses the **Event Bus** to fetch tokens.
+- **Request**: Sends a message to `auth.token.get`.
+- **Response**: Receives a String token or a failure if the `AuthVerticle` is not configured.
 - **V1 Routes**: Skip authentication.
 - **V3 Routes**: Require token injection via the `Authorization: Bearer <token>` header.

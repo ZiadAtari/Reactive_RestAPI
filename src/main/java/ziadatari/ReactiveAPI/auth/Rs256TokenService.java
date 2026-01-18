@@ -1,9 +1,11 @@
-package ziadatari.ReactiveAPI.service;
+package ziadatari.ReactiveAPI.auth;
 
 import io.vertx.core.Future;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.auth.JWTOptions;
 import io.vertx.ext.auth.jwt.JWTAuth;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import ziadatari.ReactiveAPI.exception.ErrorCode;
 import ziadatari.ReactiveAPI.exception.ServiceException;
 
@@ -11,8 +13,12 @@ import java.time.Instant;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
+/**
+ * Service for generating and caching RS256 JWT tokens.
+ */
 public class Rs256TokenService implements TokenService {
 
+    private static final Logger logger = LoggerFactory.getLogger(Rs256TokenService.class);
     private final JWTAuth jwtAuth;
     private final AtomicReference<String> cachedToken = new AtomicReference<>();
     private final AtomicLong expirationTime = new AtomicLong(0);
@@ -43,7 +49,6 @@ public class Rs256TokenService implements TokenService {
         long currentExp = expirationTime.get();
 
         // High-performance read: Return cached token if it's still valid (with buffer)
-        // Avoids computational cost of reissuing token
         if (currentToken != null && now < (currentExp - REFRESH_BUFFER_SECONDS)) {
             return Future.succeededFuture(currentToken);
         }
@@ -59,10 +64,10 @@ public class Rs256TokenService implements TokenService {
         JWTOptions options = new JWTOptions()
                 .setAlgorithm("RS256")
                 .setExpiresInSeconds(expiresInSeconds)
-                .setIgnoreExpiration(false); // Ensure expiration is set in claims
+                .setIgnoreExpiration(false);
 
         JsonObject claims = new JsonObject()
-                .put("sub", "ReactiveAPI-Client"); // Subject
+                .put("sub", "ReactiveAPI-Client");
 
         try {
             String newToken = jwtAuth.generateToken(claims, options);
@@ -71,13 +76,13 @@ public class Rs256TokenService implements TokenService {
             cachedToken.set(newToken);
             expirationTime.set(now + expiresInSeconds);
 
-            System.out.println("Generated new JWT Token. Expires at: " + (now + expiresInSeconds));
+            logger.info("Generated new JWT Token. Expires in {} seconds", expiresInSeconds);
 
             return Future.succeededFuture(newToken);
         } catch (Exception e) {
-            System.err.println("ERROR: Failed to generate JWT token: " + e.getMessage());
+            logger.error("Failed to generate JWT token", e);
             return Future.failedFuture(new ServiceException(ErrorCode.AUTH_SETUP_ERROR,
-                    "Token generation failed: " + e.getMessage() + ". Check RSA private key format."));
+                    "Token generation failed: " + e.getMessage()));
         }
     }
 }

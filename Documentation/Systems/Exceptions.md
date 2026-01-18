@@ -10,7 +10,8 @@ The Exceptions system provides a centralized, uniform way to handle errors acros
     - **ServiceException**: Maps custom business errors (e.g., `EMPLOYEE_NOT_FOUND`) to their defined `ErrorCode`.
     - **DecodeException**: Handles JSON parsing failures (`REQ_001`).
     - **Generic Exceptions**: Catches unexpected crashes (`GEN_001`) and returns 500 Internal Server Error.
-- **Response Mechanism**: Uses the `ApiError` DTO to ensure a consistent JSON structure, including a `success: false` flag and the internal code.
+- **Response Mechanism**: Uses the `ApiError` DTO to ensure a consistent JSON structure.
+- **Logging**: Uses SLF4J to log critical failures, replacing legacy `System.err` calls.
 
 ### [ErrorCode](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/src/main/java/ziadatari/ReactiveAPI/exception/ErrorCode.java)
 - **Purpose**: A centralized registry of all possible system errors.
