@@ -20,9 +20,14 @@ public class UserRepository {
 
     /**
      * Finds a user by their username.
+     * <p>
+     * Uses a prepared statement to safely query the database, preventing SQL
+     * injection.
+     * </p>
      *
      * @param username the username to search for
-     * @return a Future containing the User if found, or null if not found
+     * @return a Future containing the User object if found, or null if no match
+     *         exists
      */
     public Future<User> findByUsername(String username) {
         return dbClient.preparedQuery("SELECT id, username, password_hash FROM users WHERE username = ?")

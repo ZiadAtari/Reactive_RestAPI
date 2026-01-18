@@ -37,6 +37,20 @@ public class Rs256TokenService implements TokenService {
         this.initErrorMessage = initErrorMessage;
     }
 
+    /**
+     * Retrieves a valid service token, utilizing caching to reduce signing
+     * overhead.
+     * <p>
+     * Logic:
+     * 1. Check if a cached token exists.
+     * 2. Ensure the token is not within the "Refresh Buffer" (e.g., 5 minutes
+     * before expiry).
+     * 3. If valid, return cached token immediately.
+     * 4. If expired or missing, generate a new one.
+     * </p>
+     *
+     * @return a Future containing the JWT string
+     */
     @Override
     public Future<String> getToken() {
         if (initErrorMessage != null) {
@@ -57,6 +71,12 @@ public class Rs256TokenService implements TokenService {
         return generateNewToken(now);
     }
 
+    /**
+     * Generates a new Service Token signed with the private key.
+     *
+     * @param now current epoch time in seconds
+     * @return a Future containing the new token
+     */
     private Future<String> generateNewToken(long now) {
         // Expiration: 1 hour (3600 seconds) from now
         int expiresInSeconds = 3600;
@@ -66,13 +86,14 @@ public class Rs256TokenService implements TokenService {
                 .setExpiresInSeconds(expiresInSeconds)
                 .setIgnoreExpiration(false);
 
+        // Subject identifies the client application itself
         JsonObject claims = new JsonObject()
                 .put("sub", "ReactiveAPI-Client");
 
         try {
             String newToken = jwtAuth.generateToken(claims, options);
 
-            // Update cache
+            // Update cache atomically
             cachedToken.set(newToken);
             expirationTime.set(now + expiresInSeconds);
 
@@ -86,6 +107,19 @@ public class Rs256TokenService implements TokenService {
         }
     }
 
+    /**
+     * Generates a unique User Token for an authenticated user.
+     * <p>
+     * These tokens are:
+     * - Short-lived (15 minutes) for security.
+     * - Include the user's username as the 'sub' claim.
+     * - Include a 'role' claim for authorization (currently static "user").
+     * - NOT cached, as they are specific to a user session.
+     * </p>
+     *
+     * @param username the authenticated username
+     * @return a Future containing the user JWT
+     */
     @Override
     public Future<String> generateUserToken(String username) {
         if (initErrorMessage != null) {
@@ -103,7 +137,7 @@ public class Rs256TokenService implements TokenService {
 
         JsonObject claims = new JsonObject()
                 .put("sub", username)
-                .put("role", "user"); // Simple role
+                .put("role", "user"); // Simple role model for now
 
         try {
             String newToken = jwtAuth.generateToken(claims, options);

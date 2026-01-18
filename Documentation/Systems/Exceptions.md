@@ -9,7 +9,7 @@ The Exceptions system provides a centralized, uniform way to handle errors acros
 - **Handling Strategy**:
     - **ServiceException**: Maps custom business errors (e.g., `EMPLOYEE_NOT_FOUND`) to their defined `ErrorCode`.
     - **DecodeException**: Handles JSON parsing failures (`REQ_001`).
-    - **ReplyException**: Maps Event Bus failures (e.g., failed authentication from `UserVerticle`) to appropriate HTTP status codes.
+    - **ReplyException**: Maps Event Bus failures (e.g., failed authentication from `UserVerticle` -> 401 Unauthorized) to appropriate HTTP status codes.
     - **Generic Exceptions**: Catches unexpected crashes (`GEN_001`) and returns 500 Internal Server Error.
 - **Response Mechanism**: Uses the `ApiError` DTO to ensure a consistent JSON structure.
 - **Logging**: Uses SLF4J to log critical failures, replacing legacy `System.err` calls.

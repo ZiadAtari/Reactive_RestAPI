@@ -59,6 +59,17 @@ public class AuthVerticle extends AbstractVerticle {
         }
     }
 
+    /**
+     * Handles 'auth.token.get' requests from the Event Bus.
+     * <p>
+     * This handler retrieves a "Service Token" used for machine-to-machine
+     * communication
+     * (e.g., verifying IPs with the Demo API).
+     * The token is cached by the {@link TokenService} to minimize overhead.
+     * </p>
+     *
+     * @param message the Event Bus message (empty body expected)
+     */
     private void handleTokenRequest(Message<Object> message) {
         tokenService.getToken()
                 .onSuccess(token -> {
@@ -74,6 +85,17 @@ public class AuthVerticle extends AbstractVerticle {
                 });
     }
 
+    /**
+     * Handles 'auth.token.issue' requests from the Event Bus.
+     * <p>
+     * This handler generates a "User Token" for an authenticated user.
+     * The token includes the username as the subject and a default "user" role.
+     * Unlike service tokens, these are generated on-demand and valid for a shorter
+     * duration.
+     * </p>
+     *
+     * @param message the Event Bus message containing a JSON body with "username"
+     */
     private void handleTokenIssue(Message<Object> message) {
         JsonObject body = (JsonObject) message.body();
         String username = body.getString("username");

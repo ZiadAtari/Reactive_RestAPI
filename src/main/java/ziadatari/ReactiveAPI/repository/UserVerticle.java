@@ -66,6 +66,24 @@ public class UserVerticle extends AbstractVerticle {
         startPromise.complete();
     }
 
+    /**
+     * Authenticates a user by verifying their password against the stored hash.
+     * <p>
+     * <b>Performance Critical:</b>
+     * Password verification using BCrypt is computationally expensive by design (to
+     * resist brute force).
+     * Running this on the Event Loop would block it, causing the entire application
+     * to become unresponsive.
+     * Therefore, we wrap the verification logic in {@code vertx.executeBlocking},
+     * which delegates the work
+     * to a separate Worker Thread Pool.
+     * </p>
+     *
+     * @param username the username provided
+     * @param password the raw password provided
+     * @return a Future containing the User if authentication succeeds, or a failure
+     *         if it fails
+     */
     private Future<User> authenticate(String username, String password) {
         return userRepository.findByUsername(username)
                 .compose(user -> {
@@ -73,14 +91,15 @@ public class UserVerticle extends AbstractVerticle {
                         return Future.failedFuture(new ServiceException(ErrorCode.INVALID_CREDENTIALS));
                     }
 
-                    // Offload blocking BCrypt check
+                    // Offload blocking BCrypt check to a worker thread to prevent Event Loop
+                    // blocking
                     return vertx.executeBlocking(promise -> {
                         if (BCrypt.checkpw(password, user.getPasswordHash())) {
                             promise.complete(user);
                         } else {
                             promise.fail(new ServiceException(ErrorCode.INVALID_CREDENTIALS));
                         }
-                    }, false); // false = not ordered
+                    }, false); // false = not ordered (concurrent validations allowed)
                 });
     }
 }

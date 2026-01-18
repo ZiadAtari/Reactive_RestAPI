@@ -33,9 +33,13 @@ The Repository system manages data persistence and business logic orchestration 
     - Verifies password hash.
     - Returns minimal user details on success or fails with `UNAUTHORIZED`.
 
+### [User.java](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/src/main/java/ziadatari/ReactiveAPI/domain/User.java)
+- **Purpose**: Domain entity representing a system user.
+- **Fields**: `username`, `password_hash`, `id`.
+
 ### [UserRepository](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/src/main/java/ziadatari/ReactiveAPI/repository/UserRepository.java)
 - **Purpose**: Data access for the `users` table.
-- **Queries**: `findByUsername` to fetch credentials.
+- **Queries**: `findByUsername` to fetch credentials safely using prepared statements.
 
 ### [EmployeeService](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/src/main/java/ziadatari/ReactiveAPI/service/EmployeeService.java)
 - **Purpose**: Contains business logic and validation rules.

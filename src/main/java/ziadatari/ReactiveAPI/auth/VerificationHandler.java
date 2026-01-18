@@ -40,6 +40,13 @@ public class VerificationHandler implements Handler<RoutingContext> {
 
     /**
      * Handles IP verification.
+     * <p>
+     * Flow:
+     * 1. Extract IP address.
+     * 2. If authentication is required (e.g., v3 routes), fetch a token via Event
+     * Bus.
+     * 3. Proceed to execute the verification against the external service.
+     * </p>
      *
      * @param ctx the routing context
      */
@@ -64,6 +71,13 @@ public class VerificationHandler implements Handler<RoutingContext> {
         }
     }
 
+    /**
+     * Executes the external service call wrapped in a Circuit Breaker.
+     *
+     * @param ctx   the routing context
+     * @param ip    the IP address to verify
+     * @param token the JWT token (optional)
+     */
     private void performVerification(RoutingContext ctx, String ip, String token) {
         circuitBreaker.execute(() -> {
             var request = webClient.get(8080, "localhost", verificationPath)
@@ -84,22 +98,28 @@ public class VerificationHandler implements Handler<RoutingContext> {
                         return response;
                     });
         }).onSuccess(response -> {
+            // Circuit Breaker Execution Success (Note: The HTTP request succeeded, but the
+            // content might be failure)
             JsonObject body = null;
             try {
                 body = response.bodyAsJsonObject();
             } catch (Exception e) {
-                // Silent catch
+                // Silent catch: body might be empty or invalid
             }
 
             if (body != null && "Success".equals(body.getString("message"))) {
+                // Verification passed
                 ctx.next();
             } else if (body != null && body.getString("message", "").startsWith("Failure")) {
+                // Verification explicitly failed (e.g. business logic refusal)
                 GlobalErrorHandler.handle(ctx, new ServiceException(ErrorCode.IP_VERIFICATION_FAILED));
             } else {
+                // Unknown response or non-failure message that isn't success
                 GlobalErrorHandler.handle(ctx, new ServiceException(ErrorCode.SERVICE_UNAVAILABLE,
                         "Verification service unavailable (invalid response)"));
             }
         }).onFailure(err -> {
+            // Circuit Breaker Failure (Timeout, Open State, or Exception)
             GlobalErrorHandler.handle(ctx, new ServiceException(ErrorCode.SERVICE_UNAVAILABLE,
                     "Verification service error: " + err.getMessage()));
         });

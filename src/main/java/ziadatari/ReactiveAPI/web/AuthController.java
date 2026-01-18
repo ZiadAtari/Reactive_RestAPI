@@ -19,10 +19,18 @@ public class AuthController {
     }
 
     /**
-     * Handles user login (POST /login).
-     * 1. Validates input.
-     * 2. Authenticates user (Event Bus: users.authenticate).
-     * 3. Generates Token (Event Bus: auth.token.issue).
+     * Handles user login requests (POST /login).
+     * <p>
+     * <b>Orchestration Flow:</b>
+     * 1. Validates that the request body contains a username and password.
+     * 2. Sends a message to {@code users.authenticate} (UserVerticle) to verify
+     * credentials.
+     * 3. Upon success, sends a message to {@code auth.token.issue} (AuthVerticle)
+     * to generate a valid JWT.
+     * 4. Returns the JWT to the client.
+     * </p>
+     *
+     * @param ctx the routing context
      */
     public void login(RoutingContext ctx) {
         JsonObject body = ctx.body().asJsonObject();
