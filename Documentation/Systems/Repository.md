@@ -29,9 +29,10 @@ The Repository system manages data persistence and business logic orchestration 
 - **Security**: Offloads CPU-intensive `BCrypt` password hashing to a blocking executor to prevent event loop blocking.
 - **Flow**:
     - Listens on `users.authenticate`.
+    - Deserializes message to `LoginRequestDTO`.
     - Retrieves user from `UserRepository`.
     - Verifies password hash.
-    - Returns minimal user details on success or fails with `UNAUTHORIZED`.
+    - Returns `UserContextDTO` (username, role) on success or fails with `UNAUTHORIZED`.
 
 ### [User.java](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/src/main/java/ziadatari/ReactiveAPI/domain/User.java)
 - **Purpose**: Domain entity representing a system user.
@@ -40,6 +41,14 @@ The Repository system manages data persistence and business logic orchestration 
 ### [UserRepository](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/src/main/java/ziadatari/ReactiveAPI/repository/UserRepository.java)
 - **Purpose**: Data access for the `users` table.
 - **Queries**: `findByUsername` to fetch credentials safely using prepared statements.
+
+### [EmployeeDTO](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/src/main/java/ziadatari/ReactiveAPI/dto/EmployeeDTO.java)
+- **Purpose**: Data Transfer Object representing an employee.
+- **Design Pattern**: **Builder Pattern**.
+    - Provides a fluent API for object creation.
+    - Eliminates positional ambiguity for its 7 parameters (`id`, `name`, `department`, `salary`, `active`, `lastModifiedBy`, `lastModifiedAt`).
+- **Audit Support**: Automatically tracks `lastModifiedBy` and `lastModifiedAt` during mutations.
+- **Features**: Includes `toJson()` and `fromJson()` for seamless Vert.x JSON integration.
 
 ### [EmployeeService](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/src/main/java/ziadatari/ReactiveAPI/service/EmployeeService.java)
 - **Purpose**: Contains business logic and validation rules.

@@ -12,6 +12,8 @@ import org.mindrot.jbcrypt.BCrypt;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ziadatari.ReactiveAPI.domain.User;
+import ziadatari.ReactiveAPI.dto.LoginRequestDTO;
+import ziadatari.ReactiveAPI.dto.UserContextDTO;
 import ziadatari.ReactiveAPI.exception.ErrorCode;
 import ziadatari.ReactiveAPI.exception.ServiceException;
 
@@ -46,12 +48,16 @@ public class UserVerticle extends AbstractVerticle {
 
         // 2. Register Event Bus Consumer
         vertx.eventBus().consumer("users.authenticate", message -> {
-            JsonObject body = (JsonObject) message.body();
-            String username = body.getString("username");
-            String password = body.getString("password");
+            LoginRequestDTO loginRequest = new LoginRequestDTO((JsonObject) message.body());
+
+            String username = loginRequest.getUsername();
+            String password = loginRequest.getPassword();
 
             authenticate(username, password)
-                    .onSuccess(user -> message.reply(new JsonObject().put("username", user.getUsername())))
+                    .onSuccess(user -> {
+                        UserContextDTO userContext = new UserContextDTO(user.getUsername(), "user");
+                        message.reply(userContext.toJson());
+                    })
                     .onFailure(err -> {
                         if (err instanceof ServiceException) {
                             message.fail(((ServiceException) err).getErrorCode().getHttpStatus(), err.getMessage());

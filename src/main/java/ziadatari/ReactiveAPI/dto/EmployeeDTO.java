@@ -21,6 +21,10 @@ public class EmployeeDTO {
   private Double salary;
   /** Employment status. True if currently employed, false otherwise. */
   private Boolean active;
+  /** Username of the last person who modified this record. */
+  private String lastModifiedBy;
+  /** ISO-8601 timestamp of the last modification. */
+  private String lastModifiedAt;
 
   /**
    * Default constructor required for serialization libraries (e.g., Jackson).
@@ -33,18 +37,23 @@ public class EmployeeDTO {
   /**
    * Full constructor for manual instantiation in the service layer.
    *
-   * @param id         the unique identifier of the employee
-   * @param name       the name of the employee
-   * @param department the department the employee belongs to
-   * @param salary     the base salary of the employee
-   * @param active     the employment status (defaults to true if null)
+   * @param id             the unique identifier of the employee
+   * @param name           the name of the employee
+   * @param department     the department the employee belongs to
+   * @param salary         the base salary of the employee
+   * @param active         the employment status (defaults to true if null)
+   * @param lastModifiedBy the user who last modified the record
+   * @param lastModifiedAt the timestamp of the last modification
    */
-  public EmployeeDTO(String id, String name, String department, Double salary, Boolean active) {
+  public EmployeeDTO(String id, String name, String department, Double salary, Boolean active, String lastModifiedBy,
+      String lastModifiedAt) {
     this.id = id;
     this.name = name;
     this.department = department;
     this.salary = salary;
     this.active = (active != null) ? active : true;
+    this.lastModifiedBy = lastModifiedBy;
+    this.lastModifiedAt = lastModifiedAt;
   }
 
   /**
@@ -58,7 +67,9 @@ public class EmployeeDTO {
         .put("name", name)
         .put("department", department)
         .put("salary", salary)
-        .put("active", active);
+        .put("active", active)
+        .put("lastModifiedBy", lastModifiedBy)
+        .put("lastModifiedAt", lastModifiedAt);
 
   }
 
@@ -74,8 +85,70 @@ public class EmployeeDTO {
         json.getString("name"),
         json.getString("department"),
         json.getDouble("salary"),
-        json.getBoolean("active", true) // defaults to true
-    );
+        json.getBoolean("active", true), // defaults to true
+        json.getString("lastModifiedBy"),
+        json.getString("lastModifiedAt"));
+  }
+
+  /**
+   * Static entry point for the Builder.
+   *
+   * @return a new Builder instance
+   */
+  public static Builder builder() {
+    return new Builder();
+  }
+
+  /**
+   * Builder class for EmployeeDTO.
+   */
+  public static class Builder {
+    private String id;
+    private String name;
+    private String department;
+    private Double salary;
+    private Boolean active = true;
+    private String lastModifiedBy;
+    private String lastModifiedAt;
+
+    public Builder id(String id) {
+      this.id = id;
+      return this;
+    }
+
+    public Builder name(String name) {
+      this.name = name;
+      return this;
+    }
+
+    public Builder department(String department) {
+      this.department = department;
+      return this;
+    }
+
+    public Builder salary(Double salary) {
+      this.salary = salary;
+      return this;
+    }
+
+    public Builder active(Boolean active) {
+      this.active = active;
+      return this;
+    }
+
+    public Builder lastModifiedBy(String lastModifiedBy) {
+      this.lastModifiedBy = lastModifiedBy;
+      return this;
+    }
+
+    public Builder lastModifiedAt(String lastModifiedAt) {
+      this.lastModifiedAt = lastModifiedAt;
+      return this;
+    }
+
+    public EmployeeDTO build() {
+      return new EmployeeDTO(id, name, department, salary, active, lastModifiedBy, lastModifiedAt);
+    }
   }
 
   // Standard Getters and Setters
@@ -118,5 +191,21 @@ public class EmployeeDTO {
 
   public void setActive(Boolean active) {
     this.active = active;
+  }
+
+  public String getLastModifiedBy() {
+    return lastModifiedBy;
+  }
+
+  public void setLastModifiedBy(String lastModifiedBy) {
+    this.lastModifiedBy = lastModifiedBy;
+  }
+
+  public String getLastModifiedAt() {
+    return lastModifiedAt;
+  }
+
+  public void setLastModifiedAt(String lastModifiedAt) {
+    this.lastModifiedAt = lastModifiedAt;
   }
 }

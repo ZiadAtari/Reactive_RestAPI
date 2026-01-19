@@ -154,11 +154,14 @@ public class EmployeeVerticle extends AbstractVerticle {
      * Handler for 'employees.delete' address.
      * Deletes (soft-delete) an employee by ID.
      *
-     * @param message the Event Bus message containing the employee ID
+     * @param message the Event Bus message containing the employee mutation payload
      */
-    private void deleteEmployee(Message<String> message) {
-        String id = message.body();
-        service.deleteEmployee(id).onSuccess(done -> {
+    private void deleteEmployee(Message<JsonObject> message) {
+        JsonObject body = message.body();
+        String id = body.getString("id");
+        String user = body.getString("lastModifiedBy", "anonymous");
+
+        service.deleteEmployee(id, user).onSuccess(done -> {
             message.reply(new JsonObject().put("status", "deleted"));
         }).onFailure(err -> handleError(message, err));
     }

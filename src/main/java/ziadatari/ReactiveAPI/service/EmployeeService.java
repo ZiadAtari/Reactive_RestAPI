@@ -82,7 +82,10 @@ public class EmployeeService {
       return Future.failedFuture(new ServiceException(ErrorCode.NEGATIVE_SALARY));
     }
 
-    // 2. Conflict detection and recovery (Soft Delete handling)
+    // 2. Set Audit Timestamp
+    dto.setLastModifiedAt(java.time.Instant.now().toString());
+
+    // 3. Conflict detection and recovery (Soft Delete handling)
     // We check if an employee with the same Name/Dept exists
     return repository.findByNameAndDepartment(dto.getName(), dto.getDepartment())
         .compose(existing -> {
@@ -139,6 +142,9 @@ public class EmployeeService {
       return Future.failedFuture(new ServiceException(ErrorCode.INVALID_DEPARTMENT));
     }
 
+    // Set Audit Timestamp
+    dto.setLastModifiedAt(java.time.Instant.now().toString());
+
     return repository.update(id, dto)
         .flatMap(found -> {
           if (!found) {
@@ -155,20 +161,33 @@ public class EmployeeService {
    * @return a Future indicating success
    */
   public Future<Boolean> deleteEmployee(String id) {
+    return deleteEmployee(id, "anonymous");
+  }
+
+  /**
+   * Orchestrates the deletion of an employee by ID with audit info.
+   *
+   * @param id   the employee ID
+   * @param user the user performing the deletion
+   * @return a Future indicating success
+   */
+  public Future<Boolean> deleteEmployee(String id, String user) {
     return circuitBreaker.execute(promise -> {
-      deleteEmployeeLogic(id).onSuccess(promise::complete).onFailure(promise::fail);
+      deleteEmployeeLogic(id, user).onSuccess(promise::complete).onFailure(promise::fail);
     });
   }
 
   /**
    * Internal logic for deletion.
    */
-  private Future<Boolean> deleteEmployeeLogic(String id) {
+  private Future<Boolean> deleteEmployeeLogic(String id, String user) {
     if (id == null || id.isBlank()) {
       return Future.failedFuture(new ServiceException(ErrorCode.EMPLOYEE_ID_REQUIRED));
     }
 
-    return repository.delete(id)
+    String timestamp = java.time.Instant.now().toString();
+
+    return repository.delete(id, user, timestamp)
         .flatMap(found -> {
           if (!found) {
             return Future.failedFuture(new ServiceException(ErrorCode.EMPLOYEE_NOT_FOUND));

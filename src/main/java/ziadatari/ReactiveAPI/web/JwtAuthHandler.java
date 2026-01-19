@@ -88,7 +88,8 @@ public class JwtAuthHandler implements Handler<RoutingContext> {
         // 3. Authentication: Verify signature and claims
         jwtAuth.authenticate(new JsonObject().put("token", token))
                 .onSuccess(user -> {
-                    // Token is valid; proceed to the protected controller
+                    // Token is valid; set user in context and proceed
+                    ctx.setUser(user);
                     ctx.next();
                 })
                 .onFailure(err -> {

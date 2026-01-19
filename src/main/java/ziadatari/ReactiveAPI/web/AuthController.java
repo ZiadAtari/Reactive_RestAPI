@@ -3,6 +3,7 @@ package ziadatari.ReactiveAPI.web;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
+import ziadatari.ReactiveAPI.dto.LoginRequestDTO;
 import ziadatari.ReactiveAPI.exception.ErrorCode;
 import ziadatari.ReactiveAPI.exception.GlobalErrorHandler;
 import ziadatari.ReactiveAPI.exception.ServiceException;
@@ -33,39 +34,33 @@ public class AuthController {
      * @param ctx the routing context
      */
     public void login(RoutingContext ctx) {
-        JsonObject body = ctx.body().asJsonObject();
-        if (body == null || body.isEmpty()) {
-            GlobalErrorHandler.handle(ctx, new ServiceException(ErrorCode.EMPTY_BODY));
-            return;
-        }
+        // Step 1: Parse and Validate Request
+        LoginRequestDTO loginRequest = new LoginRequestDTO(ctx.body().asJsonObject());
 
-        String username = body.getString("username");
-        String password = body.getString("password");
-
-        if (username == null || password == null) {
+        if (!loginRequest.isValid()) {
             GlobalErrorHandler.handle(ctx, new ServiceException(ErrorCode.CREDENTIALS_REQUIRED));
             return;
         }
 
-        // Step 1: Authenticate User
-        vertx.eventBus().request("users.authenticate",
-                new JsonObject().put("username", username).put("password", password), authReply -> {
-                    if (authReply.succeeded()) {
-                        // Step 2: Issue Token
-                        vertx.eventBus().request("auth.token.issue", new JsonObject().put("username", username),
-                                tokenReply -> {
-                                    if (tokenReply.succeeded()) {
-                                        String token = (String) tokenReply.result().body();
-                                        ctx.response()
-                                                .putHeader("content-type", "application/json")
-                                                .end(new JsonObject().put("token", token).encode());
-                                    } else {
-                                        GlobalErrorHandler.handle(ctx, tokenReply.cause());
-                                    }
-                                });
-                    } else {
-                        GlobalErrorHandler.handle(ctx, authReply.cause());
-                    }
-                });
+        // Step 2: Authenticate User
+        vertx.eventBus().request("users.authenticate", loginRequest.toJson(), authReply -> {
+            if (authReply.succeeded()) {
+                // Step 2: Issue Token
+                vertx.eventBus().request("auth.token.issue",
+                        new JsonObject().put("username", loginRequest.getUsername()),
+                        tokenReply -> {
+                            if (tokenReply.succeeded()) {
+                                String token = (String) tokenReply.result().body();
+                                ctx.response()
+                                        .putHeader("content-type", "application/json")
+                                        .end(new JsonObject().put("token", token).encode());
+                            } else {
+                                GlobalErrorHandler.handle(ctx, tokenReply.cause());
+                            }
+                        });
+            } else {
+                GlobalErrorHandler.handle(ctx, authReply.cause());
+            }
+        });
     }
 }

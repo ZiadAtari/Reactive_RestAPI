@@ -45,8 +45,8 @@ sequenceDiagram
     participant UserV as UserVerticle
     participant AuthV as AuthVerticle
 
-    Client->>AuthCtrl: POST /login (user, pass)
-    AuthCtrl->>UserV: users.authenticate
+    Client->>AuthCtrl: POST /login (LoginRequestDTO)
+    AuthCtrl->>UserV: users.authenticate (LoginRequestDTO)
     Note over UserV: BCrypt Check (Blocking)
     UserV-->>AuthCtrl: User OK
     AuthCtrl->>AuthV: auth.token.issue

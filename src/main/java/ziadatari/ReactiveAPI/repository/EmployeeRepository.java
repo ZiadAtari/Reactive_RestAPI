@@ -53,8 +53,10 @@ public class EmployeeRepository {
 
     // Using prepared query for security (SQL injection prevention) and performance
     // The Tuple protects against malicious input in 'name' or 'department'
-    return client.preparedQuery("INSERT INTO employees (id, name, department, salary) Values (?, ?, ?, ?)")
-        .execute(Tuple.of(employee.getId(), employee.getName(), employee.getDepartment(), employee.getSalary()))
+    return client.preparedQuery(
+        "INSERT INTO employees (id, name, department, salary, last_modified_by, last_modified_at) Values (?, ?, ?, ?, ?, ?)")
+        .execute(Tuple.of(employee.getId(), employee.getName(), employee.getDepartment(), employee.getSalary(),
+            employee.getLastModifiedBy(), employee.getLastModifiedAt()))
         .mapEmpty();
   }
 
@@ -66,20 +68,25 @@ public class EmployeeRepository {
    * @return a Future containing true if a row was updated, false otherwise
    */
   public Future<Boolean> update(String id, EmployeeDTO employee) {
-    return client.preparedQuery("UPDATE employees SET name = ?, department = ?, salary = ? WHERE id = ?")
-        .execute(Tuple.of(employee.getName(), employee.getDepartment(), employee.getSalary(), id))
+    return client.preparedQuery(
+        "UPDATE employees SET name = ?, department = ?, salary = ?, last_modified_by = ?, last_modified_at = ? WHERE id = ?")
+        .execute(Tuple.of(employee.getName(), employee.getDepartment(), employee.getSalary(),
+            employee.getLastModifiedBy(), employee.getLastModifiedAt(), id))
         .map(rowSet -> rowSet.rowCount() > 0);
   }
 
   /**
    * Performs a soft delete by marking an employee as inactive.
    *
-   * @param id the ID of the employee to delete
+   * @param id        the ID of the employee to delete
+   * @param user      the user performing the deletion
+   * @param timestamp the timestamp of the deletion
    * @return a Future containing true if a row was updated, false otherwise
    */
-  public Future<Boolean> delete(String id) {
-    return client.preparedQuery("UPDATE employees SET active = false WHERE id = ?")
-        .execute(Tuple.of(id))
+  public Future<Boolean> delete(String id, String user, String timestamp) {
+    return client
+        .preparedQuery("UPDATE employees SET active = false, last_modified_by = ?, last_modified_at = ? WHERE id = ?")
+        .execute(Tuple.of(user, timestamp, id))
         .map(row -> row.rowCount() > 0);
   }
 
@@ -127,7 +134,9 @@ public class EmployeeRepository {
           row.getString("name"),
           row.getString("department"),
           row.getDouble("salary"),
-          row.getBoolean("active")));
+          row.getBoolean("active"),
+          row.getString("last_modified_by"),
+          row.getString("last_modified_at")));
     }
     return result;
   }

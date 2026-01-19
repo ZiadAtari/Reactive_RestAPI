@@ -58,6 +58,13 @@ public class EmployeeController {
       // Preliminary validation: attempt DTO parsing to catch format errors early.
       EmployeeDTO.fromJson(body);
 
+      // Inject authenticated user for audit trail
+      String user = "anonymous";
+      if (ctx.user() != null && ctx.user().principal() != null) {
+        user = ctx.user().principal().getString("sub", "anonymous");
+      }
+      body.put("lastModifiedBy", user);
+
       vertx.eventBus().<JsonObject>request("employees.create", body)
           .onSuccess(msg -> {
             JsonObject savedJson = msg.body();
@@ -92,6 +99,13 @@ public class EmployeeController {
 
       EmployeeDTO dto = EmployeeDTO.fromJson(body); // Validation check
 
+      // Inject authenticated user for audit trail
+      String user = "anonymous";
+      if (ctx.user() != null && ctx.user().principal() != null) {
+        user = ctx.user().principal().getString("sub", "anonymous");
+      }
+      payload.put("lastModifiedBy", user);
+
       vertx.eventBus().<JsonObject>request("employees.update", payload)
           .onSuccess(msg -> {
             sendResponse(ctx, 200, "UPDATE", id, dto.getName());
@@ -112,7 +126,14 @@ public class EmployeeController {
   public void delete(RoutingContext ctx) {
     String id = ctx.pathParam("id");
 
-    vertx.eventBus().<JsonObject>request("employees.delete", id)
+    // Inject authenticated user for audit trail
+    String user = "anonymous";
+    if (ctx.user() != null && ctx.user().principal() != null) {
+      user = ctx.user().principal().getString("sub", "anonymous");
+    }
+    JsonObject payload = new JsonObject().put("id", id).put("lastModifiedBy", user);
+
+    vertx.eventBus().<JsonObject>request("employees.delete", payload)
         .onSuccess(msg -> {
           sendResponse(ctx, 200, "DELETE", id, "N/A");
         })

@@ -24,8 +24,8 @@ The Router system manages the HTTP interface, request routing, and middleware in
 ### [AuthController](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/src/main/java/ziadatari/ReactiveAPI/web/AuthController.java)
 - **Purpose**: Handles user login requests (`POST /login`).
 - **Workflow**:
-    1. Validates username/password presence.
-    2. requests authentication from `UserVerticle`.
+    1. Validates request body using `LoginRequestDTO`.
+    2. requests authentication from `UserVerticle` passing the DTO JSON.
     3. requests token issuance from `AuthVerticle`.
     4. Returns JWT token to client.
 
