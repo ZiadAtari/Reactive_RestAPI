@@ -4,6 +4,7 @@ import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.auth.PubSecKeyOptions;
+import io.vertx.ext.auth.authentication.TokenCredentials;
 import io.vertx.ext.auth.jwt.JWTAuth;
 import io.vertx.ext.auth.jwt.JWTAuthOptions;
 import io.vertx.ext.web.RoutingContext;
@@ -86,7 +87,7 @@ public class JwtAuthHandler implements Handler<RoutingContext> {
         String token = authHeader.substring(7);
 
         // 3. Authentication: Verify signature and claims
-        jwtAuth.authenticate(new JsonObject().put("token", token))
+        jwtAuth.authenticate(new TokenCredentials(token))
                 .onSuccess(user -> {
                     // Token is valid; set user in context and proceed
                     ctx.setUser(user);

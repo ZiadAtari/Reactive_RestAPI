@@ -48,6 +48,7 @@ The Repository system manages data persistence and business logic orchestration 
     - Provides a fluent API for object creation.
     - Eliminates positional ambiguity for its 7 parameters (`id`, `name`, `department`, `salary`, `active`, `lastModifiedBy`, `lastModifiedAt`).
 - **Audit Support**: Automatically tracks `lastModifiedBy` and `lastModifiedAt` during mutations.
+- **Usage**: Exclusively used by the Web Layer (`EmployeeController`) via the **Builder** to ensure all mutation requests are type-safe and contain necessary audit trails.
 - **Features**: Includes `toJson()` and `fromJson()` for seamless Vert.x JSON integration.
 
 ### [EmployeeService](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/src/main/java/ziadatari/ReactiveAPI/service/EmployeeService.java)

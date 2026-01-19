@@ -99,11 +99,11 @@ public class UserVerticle extends AbstractVerticle {
 
                     // Offload blocking BCrypt check to a worker thread to prevent Event Loop
                     // blocking
-                    return vertx.executeBlocking(promise -> {
+                    return vertx.executeBlocking(() -> {
                         if (BCrypt.checkpw(password, user.getPasswordHash())) {
-                            promise.complete(user);
+                            return user;
                         } else {
-                            promise.fail(new ServiceException(ErrorCode.INVALID_CREDENTIALS));
+                            throw new ServiceException(ErrorCode.INVALID_CREDENTIALS);
                         }
                     }, false); // false = not ordered (concurrent validations allowed)
                 });

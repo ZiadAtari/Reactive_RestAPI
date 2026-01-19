@@ -17,7 +17,7 @@ The Router system manages the HTTP interface, request routing, and middleware in
 - **Purpose**: Maps HTTP requests to Event Bus messages and standardizes success responses.
 - **Workflow**:
     1. Extracts parameters (path, query, body).
-    2. Performs basic DTO validation.
+    2. Constructs safe DTOs using the Builder pattern (injecting audit data).
     3. Requests action from `EmployeeVerticle` via Event Bus.
     4. Formats success response with operation metadata and timestamp.
 
