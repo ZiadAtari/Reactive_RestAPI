@@ -55,17 +55,24 @@ public class EmployeeController {
         throw new ServiceException(ErrorCode.EMPTY_BODY);
       }
 
-      // Preliminary validation: attempt DTO parsing to catch format errors early.
-      EmployeeDTO.fromJson(body);
-
       // Inject authenticated user for audit trail
       String user = "anonymous";
       if (ctx.user() != null && ctx.user().principal() != null) {
         user = ctx.user().principal().getString("sub", "anonymous");
       }
-      body.put("lastModifiedBy", user);
 
-      vertx.eventBus().<JsonObject>request("employees.create", body)
+      // Use Builder pattern to construct DTO and validate input type implicitly
+      EmployeeDTO dto = EmployeeDTO.builder()
+          .id(body.getString("id"))
+          .name(body.getString("name"))
+          .department(body.getString("department"))
+          .salary(body.getDouble("salary"))
+          .active(body.getBoolean("active", true)) // Default to true if missing
+          .lastModifiedBy(user)
+          .lastModifiedAt(body.getString("lastModifiedAt"))
+          .build();
+
+      vertx.eventBus().<JsonObject>request("employees.create", dto.toJson())
           .onSuccess(msg -> {
             JsonObject savedJson = msg.body();
             sendResponse(ctx, 201, "CREATE", savedJson.getString("id"), savedJson.getString("name"));
@@ -94,19 +101,25 @@ public class EmployeeController {
       if (body == null) {
         throw new ServiceException(ErrorCode.EMPTY_BODY);
       }
-      // Inject path ID into payload for unified Event Bus transmission
-      JsonObject payload = body.copy().put("id", id);
-
-      EmployeeDTO dto = EmployeeDTO.fromJson(body); // Validation check
 
       // Inject authenticated user for audit trail
       String user = "anonymous";
       if (ctx.user() != null && ctx.user().principal() != null) {
         user = ctx.user().principal().getString("sub", "anonymous");
       }
-      payload.put("lastModifiedBy", user);
 
-      vertx.eventBus().<JsonObject>request("employees.update", payload)
+      // Use Builder pattern to construct DTO, injecting ID from path
+      EmployeeDTO dto = EmployeeDTO.builder()
+          .id(id)
+          .name(body.getString("name"))
+          .department(body.getString("department"))
+          .salary(body.getDouble("salary"))
+          .active(body.getBoolean("active", true))
+          .lastModifiedBy(user)
+          .lastModifiedAt(body.getString("lastModifiedAt"))
+          .build();
+
+      vertx.eventBus().<JsonObject>request("employees.update", dto.toJson())
           .onSuccess(msg -> {
             sendResponse(ctx, 200, "UPDATE", id, dto.getName());
           })
@@ -131,9 +144,14 @@ public class EmployeeController {
     if (ctx.user() != null && ctx.user().principal() != null) {
       user = ctx.user().principal().getString("sub", "anonymous");
     }
-    JsonObject payload = new JsonObject().put("id", id).put("lastModifiedBy", user);
 
-    vertx.eventBus().<JsonObject>request("employees.delete", payload)
+    // Use Builder to construct a consistent payload
+    EmployeeDTO dto = EmployeeDTO.builder()
+        .id(id)
+        .lastModifiedBy(user)
+        .build();
+
+    vertx.eventBus().<JsonObject>request("employees.delete", dto.toJson())
         .onSuccess(msg -> {
           sendResponse(ctx, 200, "DELETE", id, "N/A");
         })
