@@ -92,7 +92,25 @@ All `/v3` endpoints below require the header: `Authorization: Bearer <token>`
 }
 ```
 
-#### 4. Update Employee
+#### 4. Batch Create Employees
+**POST** `/v3/employees`
+**Body:**
+```json
+[
+  {
+    "name": "Alice",
+    "department": "IT",
+    "salary": 75000.0
+  },
+  {
+    "name": "Bob",
+    "department": "HR",
+    "salary": 68000.0
+  }
+]
+```
+
+#### 5. Update Employee
 **PUT** `/v3/employees/:id`
 **Body:**
 ```json
@@ -103,7 +121,7 @@ All `/v3` endpoints below require the header: `Authorization: Bearer <token>`
 }
 ```
 
-#### 5. Soft Delete Employee
+#### 6. Soft Delete Employee
 **DELETE** `/v3/employees/:id`
 ```bash
 curl -X DELETE http://localhost:8888/v3/employees/550e8400-e29b... \
@@ -124,7 +142,7 @@ curl -X DELETE http://localhost:8888/v3/employees/550e8400-e29b... \
 ## Changelog
 
 #### V3: Authentication & Containerization
-* **v3.4.0** JSON Schema Validation added
+* **v3.4.0** JSON Schema Validation & Batch Updates added
 * **v3.3.2** Bug Fixes
 * **v3.3.1** Bug Fixes
 * **v3.3.0** DTO Improvements
