@@ -8,7 +8,7 @@ The system employs a **Dual-Token Strategy**:
 1.  **User Tokens**: Issued to clients after login. Used to authorize mutations (`POST`, `PUT`, `DELETE`).
 2.  **Service Tokens**: Signed by the API to authenticate itself against external services (e.g., `DemoAPI`).
 
-## Components
+## Components 
 
 ### [AuthVerticle](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/src/main/java/ziadatari/ReactiveAPI/auth/AuthVerticle.java)
 - **Purpose**: Specialized verticle for JWT management and token issuance.

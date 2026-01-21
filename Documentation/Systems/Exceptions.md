@@ -2,7 +2,7 @@
 
 The Exceptions system provides a centralized, uniform way to handle errors across all layers and return consistent JSON responses to the client.
 
-## Components
+## Components 
 
 ### [GlobalErrorHandler](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/src/main/java/ziadatari/ReactiveAPI/exception/GlobalErrorHandler.java)
 - **Purpose**: Static utility for mapping exceptions to HTTP responses.
