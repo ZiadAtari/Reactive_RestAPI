@@ -79,6 +79,7 @@ public class EmployeeVerticle extends AbstractVerticle {
             // Register handlers for Event Bus addresses
             vertx.eventBus().consumer("employees.get.all", this::getAllEmployees);
             vertx.eventBus().consumer("employees.create", this::createEmployee);
+            vertx.eventBus().consumer("employees.create.batch", this::createEmployeeBatch);
             vertx.eventBus().consumer("employees.update", this::updateEmployee);
             vertx.eventBus().consumer("employees.delete", this::deleteEmployee);
 
@@ -125,6 +126,39 @@ public class EmployeeVerticle extends AbstractVerticle {
             }).onFailure(err -> {
                 handleError(message, err);
             });
+        } catch (Exception e) {
+            handleError(message, e);
+        }
+    }
+
+    /**
+     * Handler for 'employees.create.batch' address.
+     * <p>
+     * Parses the incoming JsonArray into a list of EmployeeDTOs and delegates
+     * to the service for concurrent creation.
+     * </p>
+     *
+     * @param message the Event Bus message containing a JsonArray of employee
+     *                objects
+     */
+    private void createEmployeeBatch(Message<JsonArray> message) {
+        try {
+            JsonArray body = message.body();
+            if (body == null || body.isEmpty()) {
+                message.fail(ErrorCode.EMPTY_BODY.ordinal(), "Batch body is empty");
+                return;
+            }
+
+            java.util.List<EmployeeDTO> dtos = new java.util.ArrayList<>();
+            for (int i = 0; i < body.size(); i++) {
+                dtos.add(EmployeeDTO.fromJson(body.getJsonObject(i)));
+            }
+
+            service.createBatch(dtos).onSuccess(list -> {
+                JsonArray response = new JsonArray();
+                list.forEach(dto -> response.add(dto.toJson()));
+                message.reply(response);
+            }).onFailure(err -> handleError(message, err));
         } catch (Exception e) {
             handleError(message, e);
         }

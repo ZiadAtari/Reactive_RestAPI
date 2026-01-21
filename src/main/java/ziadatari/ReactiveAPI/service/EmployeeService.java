@@ -60,6 +60,35 @@ public class EmployeeService {
   }
 
   /**
+   * Orchestrates the creation of a batch of employees (Part of 3.4 Schema
+   * Update).
+   * <p>
+   * This method processes a list of employees concurrently using
+   * {@link io.vertx.core.CompositeFuture}.
+   * It delegates the actual creation logic (including business validation and
+   * duplicate checks)
+   * to {@link #createEmployeeLogic(EmployeeDTO)} for each item.
+   * </p>
+   *
+   * @param dtos list of employee data to create
+   * @return a Future containing the list of successfully created employees
+   */
+  public Future<List<EmployeeDTO>> createBatch(List<EmployeeDTO> dtos) {
+    return circuitBreaker.execute(promise -> {
+      List<Future> futures = dtos.stream()
+          .map(this::createEmployeeLogic)
+          .collect(java.util.stream.Collectors.toList());
+
+      io.vertx.core.CompositeFuture.all(futures)
+          .onSuccess(cf -> {
+            List<EmployeeDTO> results = cf.list();
+            promise.complete(results);
+          })
+          .onFailure(promise::fail);
+    });
+  }
+
+  /**
    * Internal logic for employee creation, including input validation and
    * duplicate checks.
    *

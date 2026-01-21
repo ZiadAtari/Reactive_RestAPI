@@ -17,14 +17,15 @@ The Router system manages the HTTP interface, request routing, and middleware in
 - **Purpose**: Maps HTTP requests to Event Bus messages and standardizes success responses.
 - **Workflow**:
     1. Extracts parameters (path, query, body).
-    2. Constructs safe DTOs using the Builder pattern (injecting audit data).
-    3. Requests action from `EmployeeVerticle` via Event Bus.
-    4. Formats success response with operation metadata and timestamp.
+    2. **Validation**: Performs "fail-fast" JSON Schema validation (`SchemaValidator`) and checks for batch vs. single inputs.
+    3. Constructs safe DTOs using the Builder pattern (injecting audit data).
+    4. Requests action from `EmployeeVerticle` via Event Bus.
+    5. Formats success response with operation metadata and timestamp.
 
 ### [AuthController](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/src/main/java/ziadatari/ReactiveAPI/web/AuthController.java)
 - **Purpose**: Handles user login requests (`POST /login`).
 - **Workflow**:
-    1. Validates request body using `LoginRequestDTO`.
+    1. **Validation**: Validates request body using `SchemaValidator` (ensures `username`/`password` presence).
     2. requests authentication from `UserVerticle` passing the DTO JSON.
     3. requests token issuance from `AuthVerticle`.
     4. Returns JWT token to client.
@@ -40,6 +41,13 @@ The Router system manages the HTTP interface, request routing, and middleware in
 - **[VerificationHandler](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/src/main/java/ziadatari/ReactiveAPI/auth/VerificationHandler.java)**:
     - Performs service-to-service IP verification using an external "Demo" API.
     - Decouples token retrieval using the **Event Bus**.
+
+### [SchemaValidator](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/src/main/java/ziadatari/ReactiveAPI/util/SchemaValidator.java)
+- **Purpose**: Centralized JSON Schema validation utility (Part of 3.4 Update).
+- **Functionality**:
+    - Pre-compiles schemas for Login, Employee, and Employee Batch.
+    - Provides synchronous "fail-fast" validation methods.
+    - Maps validation errors to specific system `ErrorCode`s.
 
 ## Resilience: [CustomCircuitBreaker](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/src/main/java/ziadatari/ReactiveAPI/web/CustomCircuitBreaker.java)
 - **Purpose**: Protective wrapper for the `WebClient` during external service calls.

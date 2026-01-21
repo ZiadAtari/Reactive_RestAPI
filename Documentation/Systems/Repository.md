@@ -18,6 +18,7 @@ The Repository system manages data persistence and business logic orchestration 
 - **Deployment**: Deployed sequentially *before* the `HttpVerticle` to ensure the Event Bus consumers are ready.
 - **Flow**:
     - Listens for messages on the Vert.x Event Bus (e.g., `employees.get.all`, `employees.create`).
+    - **Batch Processing**: Handles `employees.create.batch` for concurrent creation of multiple records.
     - Orchestrates calls to the `EmployeeService`.
     - Returns responses or fails messages back to the requester.
 - **Resilience**: Configures a `CircuitBreaker` to protect database operations.
@@ -55,6 +56,7 @@ The Repository system manages data persistence and business logic orchestration 
 - **Purpose**: Contains business logic and validation rules.
 - **Logic**:
     - Validates DTO fields before persistence.
+    - **Batch Support**: Processes lists of employees concurrently using `CompositeFuture`.
     - Handles conflict detection (e.g., preventing duplicates or reactivating soft-deleted records).
     - Wraps repository calls in circuit breaker execution blocks.
 

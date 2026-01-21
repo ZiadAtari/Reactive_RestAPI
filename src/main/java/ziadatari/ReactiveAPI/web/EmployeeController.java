@@ -45,41 +45,67 @@ public class EmployeeController {
   /**
    * Handles POST /employees.
    * Parses the request body and requests employee creation.
+   * <p>
+   * <b>3.4 Schema Update:</b> Now supports both Single JSON Object and Batch
+   * JSON Array inputs.
+   * Performs "fail-fast" schema validation before processing.
+   * </p>
    *
    * @param ctx the routing context
    */
   public void create(RoutingContext ctx) {
     try {
-      JsonObject body = ctx.body().asJsonObject();
-      if (body == null) {
+      String bodyStr = ctx.body().asString();
+      if (bodyStr == null || bodyStr.isBlank()) {
         throw new ServiceException(ErrorCode.EMPTY_BODY);
       }
+      bodyStr = bodyStr.trim();
 
-      // Inject authenticated user for audit trail
-      String user = "anonymous";
-      if (ctx.user() != null && ctx.user().principal() != null) {
-        user = ctx.user().principal().getString("sub", "anonymous");
+      if (bodyStr.startsWith("[")) {
+        // --- BATCH CREATION ---
+        JsonArray array = new JsonArray(bodyStr);
+        // Schema Validation (Fails Fast)
+        ziadatari.ReactiveAPI.util.SchemaValidator.validateEmployeeBatch(array);
+
+        vertx.eventBus().<JsonArray>request("employees.create.batch", array)
+            .onSuccess(msg -> {
+              ctx.response().setStatusCode(201).putHeader("content-type", "application/json")
+                  .end(msg.body().encodePrettily());
+            })
+            .onFailure(err -> handleError(ctx, err));
+
+      } else {
+        // --- SINGLE CREATION ---
+        JsonObject body = new JsonObject(bodyStr);
+        // Schema Validation (Fails Fast)
+        ziadatari.ReactiveAPI.util.SchemaValidator.validateEmployee(body);
+
+        // Inject authenticated user for audit trail
+        String user = "anonymous";
+        if (ctx.user() != null && ctx.user().principal() != null) {
+          user = ctx.user().principal().getString("sub", "anonymous");
+        }
+
+        // Use Builder pattern to construct DTO
+        EmployeeDTO dto = EmployeeDTO.builder()
+            .id(body.getString("id"))
+            .name(body.getString("name"))
+            .department(body.getString("department"))
+            .salary(body.getDouble("salary"))
+            .active(body.getBoolean("active", true)) // Default to true if missing
+            .lastModifiedBy(user)
+            .lastModifiedAt(body.getString("lastModifiedAt"))
+            .build();
+
+        vertx.eventBus().<JsonObject>request("employees.create", dto.toJson())
+            .onSuccess(msg -> {
+              JsonObject savedJson = msg.body();
+              sendResponse(ctx, 201, "CREATE", savedJson.getString("id"), savedJson.getString("name"));
+            })
+            .onFailure(err -> {
+              handleError(ctx, err);
+            });
       }
-
-      // Use Builder pattern to construct DTO and validate input type implicitly
-      EmployeeDTO dto = EmployeeDTO.builder()
-          .id(body.getString("id"))
-          .name(body.getString("name"))
-          .department(body.getString("department"))
-          .salary(body.getDouble("salary"))
-          .active(body.getBoolean("active", true)) // Default to true if missing
-          .lastModifiedBy(user)
-          .lastModifiedAt(body.getString("lastModifiedAt"))
-          .build();
-
-      vertx.eventBus().<JsonObject>request("employees.create", dto.toJson())
-          .onSuccess(msg -> {
-            JsonObject savedJson = msg.body();
-            sendResponse(ctx, 201, "CREATE", savedJson.getString("id"), savedJson.getString("name"));
-          })
-          .onFailure(err -> {
-            handleError(ctx, err);
-          });
 
     } catch (Exception e) {
       GlobalErrorHandler.handle(ctx, e);
@@ -101,6 +127,9 @@ public class EmployeeController {
       if (body == null) {
         throw new ServiceException(ErrorCode.EMPTY_BODY);
       }
+
+      // Schema Validation (Fails Fast)
+      ziadatari.ReactiveAPI.util.SchemaValidator.validateEmployee(body);
 
       // Inject authenticated user for audit trail
       String user = "anonymous";

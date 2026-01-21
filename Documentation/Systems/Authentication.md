@@ -36,16 +36,19 @@ The system employs a **Dual-Token Strategy**:
 ## Authentication Flows
 
 ### 1. User Login Flow (`POST /login`)
-The user authenticates to receive a token.
+The user authenticates to receive a token. The request is first **validated against a JSON Schema** to ensure required fields are present.
 
 ```mermaid
 sequenceDiagram
     participant Client
     participant AuthCtrl as AuthController
+    participant Val as SchemaValidator
     participant UserV as UserVerticle
     participant AuthV as AuthVerticle
 
     Client->>AuthCtrl: POST /login (LoginRequestDTO)
+    AuthCtrl->>Val: validateLogin(body)
+    Note over Val: Fail-Fast if invalid
     AuthCtrl->>UserV: users.authenticate (LoginRequestDTO)
     Note over UserV: BCrypt Check (Blocking)
     UserV-->>AuthCtrl: User OK
