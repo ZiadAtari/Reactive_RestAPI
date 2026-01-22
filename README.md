@@ -141,7 +141,10 @@ curl -X DELETE http://localhost:8888/v3/employees/550e8400-e29b... \
 
 ## Changelog
 
-#### V3: Authentication & Containerization
+#### V4: Production Grade Features
+* **v4.0.0** Metrics & Monitoring added
+
+#### V3: Authentication
 * **v3.4.0** JSON Schema Validation & Batch Updates added
 * **v3.3.2** Bug Fixes
 * **v3.3.1** Bug Fixes

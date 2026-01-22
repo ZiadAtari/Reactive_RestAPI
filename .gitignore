@@ -39,7 +39,6 @@ Thumbs.db
 
 # Project Specific
 file-uploads/
-Documentation/UPDATES/
 *.pem
 *.key
 !**/src/main/resources/**/*.pem

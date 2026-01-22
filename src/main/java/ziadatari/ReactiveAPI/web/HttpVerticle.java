@@ -11,6 +11,7 @@ import ziadatari.ReactiveAPI.auth.RateLimitHandler;
 import ziadatari.ReactiveAPI.auth.VerificationHandler;
 
 import io.vertx.ext.web.client.WebClientOptions;
+import io.vertx.ext.healthchecks.HealthCheckHandler;
 
 /**
  * Verticle responsible for running the HTTP server.
@@ -52,6 +53,11 @@ public class HttpVerticle extends AbstractVerticle {
 
     // 1. BodyHandler: Essential for reading JSON bodies from incoming requests.
     router.route().handler(BodyHandler.create());
+
+    // --- HEALTH CHECKS ---
+    HealthCheckHandler healthCheckHandler = HealthCheckHandler.create(vertx);
+    healthCheckHandler.register("server-live", promise -> promise.complete(io.vertx.ext.healthchecks.Status.OK()));
+    router.get("/health/live").handler(healthCheckHandler);
 
     // 2. RateLimitHandler: Limits requests per IP (100 reqs per 1000ms window).
     router.route().handler(new RateLimitHandler(vertx, 100, 1000));

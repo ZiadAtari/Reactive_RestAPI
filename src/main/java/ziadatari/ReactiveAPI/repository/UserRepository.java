@@ -5,7 +5,6 @@ import io.vertx.sqlclient.Pool;
 import io.vertx.sqlclient.Row;
 import io.vertx.sqlclient.RowSet;
 import io.vertx.sqlclient.Tuple;
-import ziadatari.ReactiveAPI.domain.User;
 
 /**
  * Repository for accessing User data from the database.

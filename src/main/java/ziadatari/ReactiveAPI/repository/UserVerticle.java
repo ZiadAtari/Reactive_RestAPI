@@ -11,7 +11,7 @@ import io.vertx.sqlclient.PoolOptions;
 import org.mindrot.jbcrypt.BCrypt;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import ziadatari.ReactiveAPI.domain.User;
+
 import ziadatari.ReactiveAPI.dto.LoginRequestDTO;
 import ziadatari.ReactiveAPI.dto.UserContextDTO;
 import ziadatari.ReactiveAPI.exception.ErrorCode;
