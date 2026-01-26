@@ -1,29 +1,27 @@
-# v4.2 Specification: Visualization & Alerting
+# v4.2 Specification: Native Metrics & Alerting
 
-**Version:** 4.2.1
-**Focus:** Observability Visualization, Intelligent Alerting, & Metrics Diagnosis
+**Version:** 4.2.3
+**Focus:** Native Prometheus Visualization, Data Hygiene, & Alerting
 **Status:** In Progress
-**Dependencies:** Builds on v4.1 (Metrics)
 
 ---
 
 ## 1. Overview
 
-With metrics collection established in v4.1, v4.2 focuses on **making those metrics useful**. We will implement **Grafana** for real-time visualization and **Prometheus AlertManager** for proactive incident response.
+v4.2 focuses on **cleaning and sanitizing exposed metrics** to ensure they can be effectively visualized using **Prometheus's built-in Graphing capabilities**.
 
-Operators should not need to query Prometheus manually. They should have a "Single Pane of Glass" dashboard and receive notifications when critical thresholds are breached.
+We will move away from pre-calculated client-side summaries (which obscure data distribution) and implement **Server-Side Histograms**. This allows operators to run valid `histogram_quantile` queries directly in Prometheus to analyze response times and failure rates.
 
 ---
 
 ## 2. Business Requirements (BR)
 
-* **BR-01 Operational Dashboard:** Provide a visual dashboard showing real-time System Health, Traffic utilization, and Error Rates.
-* **BR-02 Proactive Alerting:** The system must notify operators when:
+* **BR-01 Native Visualization:** Metric data must be structured (Buckets) such that it can be graphed natively in Prometheus without external tools like Grafana.
+* **BR-02 Data Hygiene:** Ensure response time metrics are clean and aggregatable across multiple instances.
+* **BR-03 Proactive Alerting:** The system must notify operators via AlertManager when:
     * The application goes down (Liveness failure).
-    * Error rates exceed 5% (Quality of Service degradation).
-    * Latency spikes above 500ms (Performance degradation).
-* **BR-03 Integration:** All visualization and alerting tools must run in the existing Docker Compose environment.
-* **BR-04 Metrics Repair:** Ensure all critical metrics (specifically Latency/Response Time) are correctly exposed in a format suitable for aggregation (Histograms).
+    * Error rates exceed 5%.
+    * Latency spikes above 500ms.
 
 ---
 
@@ -31,77 +29,41 @@ Operators should not need to query Prometheus manually. They should have a "Sing
 
 ### In Scope
 * **Infrastructure:**
-    * Add **Grafana** to `docker-compose.yml`.
     * Add **AlertManager** to `docker-compose.yml`.
 * **Configuration:**
-    * Grafana Provisioning (Datasources & Dashboards).
+    * **[CRITICAL] Update `AppLauncher`** to emit clean Histogram Buckets.
     * Prometheus Alert Rules.
-    * **[NEW] Update `AppLauncher`** to enable Histogram Buckets.
-* **Dashboard:**
-    * Create "Reactive API Overview" dashboard.
+* **Documentation:**
+    * Provide the exact PromQL expressions needed to graph the user's requested data points.
 
 ### Out of Scope
-* **Email/Slack Integration:** For this version, Alerts will be verified via the AlertManager UI/API.
+* **Grafana:** External dashboarding tools are explicitly excluded. Visualization will rely on Prometheus Native Graphs.
 
 ---
 
 ## 4. Functional Requirements
 
-### FR-01: Grafana Dashboard
-The dashboard must include:
-1.  **Global Status:** Up/Down indicator.
-2.  **Traffic:** Request rate (RPS) broken down by method.
-3.  **Latency:** p95 Response time (calculated via `histogram_quantile`).
-4.  **Business Logic:** Login Success/Failure Monitor (`api_auth_attempts_total`).
-5.  **Circuit Breaker:** Current state of the Breaker.
+### FR-01: Metric Data Hygiene (The "Clean & Sanitize" Requirement)
+The application must stop emitting "black box" pre-calculated quantiles (`quantile="0.95"`).
+Instead, it must emission **SLA Buckets** (`le="..."`) for the metric `vertx_http_server_requests_seconds`.
 
-### FR-02: Critical Alerts
-Define the following Prometheus Rules:
-1.  `InstanceDown`: Triggers if `up == 0` for > 30s.
-2.  `HighErrorRate`: Triggers if 5xx responses > 5% of total traffic.
-3.  `HighLatency`: Triggers if p95 latency > 500ms.
+**Required Buckets:**
+- `0.1s` (100ms) - Fast
+- `0.5s` (500ms) - SLA Boundary
+- `1.0s` (1s) - Slow
+- `5.0s` (5s) - Very Slow
+- `10.0s`: Timeout
 
----
-
-## 5. Diagnosis: Missing Response Times
-
-### Issue
-Users report that "Response Time" metrics are returning nothing in Prometheus.
-
-### Explanation (Root Cause)
-The current implementation in `AppLauncher.java` enables `setPublishQuantiles(true)`. In Micrometer/Prometheus, this generates **Client-Side Summaries**.
-*   **Result:** You get pre-calculated quantiles (e.g., `quantile="0.95"`).
-*   **Problem:** Most standard Grafana dashboards and aggregation queries use `histogram_quantile` which requires **Server-Side Histograms** (buckets). You cannot aggregate Summaries across multiple instances (e.g., if we scale to 3 replicas).
-
-### Solution
-We must update `AppLauncher.java` to configure a `MeterFilter` that enables **SLA Boundaries (Buckets)** or **Percentile Histograms**.
-Ideally, we should emit `_bucket` metrics:
-*   `vertx_http_server_requests_seconds_bucket{le="0.1"}`
-*   `vertx_http_server_requests_seconds_bucket{le="0.5"}`
-*   ...
-
-This change is required to satisfy **BR-04**.
+### FR-02: Native Graphing Capabilities
+The following data points must be queryable via Prometheus Expression Browser:
+1.  **Avg Response Time**: `rate(sum)/rate(count)`
+2.  **P95 Response Time**: `histogram_quantile(0.95, rate(bucket))`
+3.  **Failure Rate**: `rate(count{code=~"5.."}) / rate(count)`
 
 ---
 
-## 5.1 Metrics Contract (Post-Update)
+## 5. Required Changes
 
-After the `AppLauncher` update, the following metrics will be exposed. **Bold** indicates new metrics enabling Grafana.
-
-| Metric Name | Type | Labels | Description |
-| :--- | :--- | :--- | :--- |
-| **`vertx_http_server_requests_seconds_bucket`** | **Histogram** | `le`, `method`, `code`, `route` | **(NEW)** Critical for `histogram_quantile` (Response Time). Buckets: `[0.1, 0.5, 1.0, 5.0, 10.0]` |
-| `vertx_http_server_requests_seconds_count` | Counter | `method`, `code`, `route` | Total request count (Traffic). |
-| `vertx_http_server_requests_seconds_sum` | Counter | `method`, `code`, `route` | Total duration sum (used for Average Latency). |
-| `api_auth_attempts_total` | Counter | `result` | Login success/failure count. |
-| `process_uptime_seconds` | Gauge | *none* | Logic for "Instance Down" alerts. |
-| `jvm_memory_used_bytes` | Gauge | `area`, `id` | Memory usage (Heap/Non-Heap). |
-| `jvm_gc_pause_seconds` | Summary | `action`, `cause` | Garbage Collection pauses. |
-
----
-
-## 6. Technical Stack & Maintenance
-
-*   **Grafana:** Latest OSS Version.
-*   **AlertManager:** Latest OSS Version.
-*   **Code Change:** Update `AppLauncher.java` to inject `DistributionStatisticConfig`.
+### `AppLauncher.java`
+- **Disable**: `setPublishQuantiles(true)` (Removes dirty/un-aggregatable data).
+- **Enable**: `DistributionStatisticConfig` with explicit bucket boundaries (Adds clean/graphable data). 

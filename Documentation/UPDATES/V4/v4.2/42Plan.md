@@ -1,57 +1,45 @@
-# v4.2 Implementation Plan: Visualization & Alerting
+# v4.2 Implementation Plan: Native Metrics
 
 ## Goal Description
-Implement Grafana for visualization and AlertManager for alerting to complete the Observability stack started in v4.1.
+Refine `AppLauncher.java` to emit sanitized **Histogram Buckets** instead of summaries. This enables native graphing of percentiles (P95, Max) directly in Prometheus, satisfying the requirement to visualize data without Grafana.
 
 ## User Review Required
 > [!IMPORTANT]
-> This update adds two new containers to the `docker-compose.yml` stack. Ensure Docker resources are sufficient.
+> This change fundamentally alters the metric format. Old `quantile` queries will stop working. Use `histogram_quantile` instead.
 
 ## Proposed Changes
 
-### Codebase Changes
+### 1. Codebase Changes (Metrics Hygiene)
 #### [MODIFY] [AppLauncher.java](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/src/main/java/ziadatari/ReactiveAPI/main/AppLauncher.java)
-- **CRITICAL**: Configure `MeterFilter` to enable Histogram Buckets for `http.server.requests`.
-- Switch from Client-Side Summaries to Server-Side Histograms to support Aggregation.
+- **Objective**: "Clean and Sanitize" metrics for Prometheus.
+- **Actions**:
+    - **REMOVE**: `setPublishQuantiles(true)`. (Source of dirty, un-aggregatable data).
+    - **ADD**: `MeterFilter` for `http.server.requests`.
+    - **ADD**: `DistributionStatisticConfig` with `percentileHistogram(false)` and `sla(0.1, 0.5, 1.0, 5.0, 10.0)`.
+    - **Reasoning**: This forces Micrometer to output `_bucket` series, which are the raw material Prometheus needs to draw histograms.
 
-### Infrastructure
+### 2. Infrastructure
 #### [MODIFY] [docker-compose.yml](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/Metrics/Prometheus/docker-compose.yml)
-- Add `grafana` service (Port 3000).
 - Add `alertmanager` service (Port 9093).
-- Configure networks to allow Prometheus to talk to AlertManager.
+- Ensure `grafana` is **actions excluded**.
 
-### Configuration
-#### [NEW] [grafana/provisioning/datasources/datasource.yml](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/Metrics/Grafana/provisioning/datasources/datasource.yml)
-- Auto-provision Prometheus as the default data source.
-
-#### [NEW] [grafana/provisioning/dashboards/dashboard.yml](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/Metrics/Grafana/provisioning/dashboards/dashboard.yml)
-- Auto-load dashboards from the JSON file.
-
-#### [NEW] [grafana/dashboards/reactive-api-overview.json](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/Metrics/Grafana/dashboards/reactive-api-overview.json)
-- The JSON definition of the dashboard.
-
+### 3. Configuration (Alerting)
 #### [NEW] [prometheus/alert_rules.yml](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/Metrics/Prometheus/alert_rules.yml)
-- Define `InstanceDown`, `HighErrorRate`, etc.
+- Define standard alerts (`InstanceDown`, `HighLatency`).
 
 #### [MODIFY] [prometheus.yml](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/Metrics/Prometheus/prometheus.yml)
-- Uncomment and point to `alert_rules.yml`.
-- Uncomment and point to `alertmanager` target.
+- Configure AlertManager target.
 
 ---
 
 ## Verification Plan
 
-### Automated Verification
-* None (Infrastructure/Config changes).
-
-### Manual Verification
-1.  **Bring up Stack:** `docker-compose up -d`
-2.  **Verify Grafana:**
-    * Open `http://localhost:3000` (User/Pass: admin/admin).
-    * Check "Reactive API Overview" dashboard is auto-loaded.
-    * Verify graphs show data (Login, Liveness, etc.).
-3.  **Verify Alerting:**
-    * Stop the API: `Ctrl+C` or kill the process.
-    * Wait 30s.
-    * Check `http://localhost:9090/alerts` (Prometheus) shows `InstanceDown` as FIRING.
-    * Check `http://localhost:9093` (AlertManager) shows the received alert.
+### Manual Verification (Prometheus Native)
+1.  **Generate Traffic**: `curl localhost:8888/login` (Generate success/fail calls).
+2.  **Verify Clean Data**:
+    *   Query: `vertx_http_server_requests_seconds_bucket`
+    *   Confirm `le` labels exist (0.1, 0.5, etc.).
+3.  **Verify Visualizations**:
+    *   Open Prometheus Graph Tab.
+    *   **Graph P95 Latency**: `histogram_quantile(0.95, sum(rate(vertx_http_server_requests_seconds_bucket[5m])) by (le))`
+    *   Confirm the graph renders a valid line.
