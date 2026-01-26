@@ -54,6 +54,18 @@ public class CustomCircuitBreaker {
         this.executionTimeoutMs = executionTimeoutMs;
         this.resetTimeoutMs = resetTimeoutMs;
         this.maxFailures = maxFailures;
+
+        io.micrometer.core.instrument.MeterRegistry registry = io.vertx.micrometer.backends.BackendRegistries
+                .getDefaultNow();
+        if (registry != null) {
+            registry.gauge("circuit_breaker_state", state, s -> {
+                if (s.get() == State.CLOSED)
+                    return 0;
+                if (s.get() == State.OPEN)
+                    return 1;
+                return 2; // HALF_OPEN
+            });
+        }
     }
 
     /**

@@ -37,6 +37,7 @@ The system employs a **Dual-Token Strategy**:
 
 ### 1. User Login Flow (`POST /login`)
 The user authenticates to receive a token. The request is first **validated against a JSON Schema** to ensure required fields are present.
+> **Observability**: Login attempts are tracked via the `api_auth_attempts_total` counter (labels: `result=success|failure`).
 
 ```mermaid
 sequenceDiagram

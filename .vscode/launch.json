@@ -3,6 +3,13 @@
     "configurations": [
         {
             "type": "java",
+            "name": "AppLauncher",
+            "request": "launch",
+            "mainClass": "ziadatari.ReactiveAPI.main.AppLauncher",
+            "projectName": "ReactiveAPI"
+        },
+        {
+            "type": "java",
             "name": "HashGenerator",
             "request": "launch",
             "mainClass": "ziadatari.ReactiveAPI.HashGenerator",
@@ -12,7 +19,7 @@
             "type": "java",
             "name": "Debug MainVerticle",
             "request": "launch",
-            "mainClass": "io.vertx.core.Launcher",
+            "mainClass": "ziadatari.ReactiveAPI.main.AppLauncher",
             "args": "run ziadatari.ReactiveAPI.main.MainVerticle",
             "cwd": "${workspaceFolder}",
             "env": {

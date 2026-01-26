@@ -20,7 +20,7 @@
     <junit-jupiter.version>5.9.1</junit-jupiter.version>
 
     <main.verticle>ziadatari.ReactiveAPI.main.MainVerticle</main.verticle>
-    <launcher.class>io.vertx.core.Launcher</launcher.class>
+    <launcher.class>ziadatari.ReactiveAPI.main.AppLauncher</launcher.class>
   </properties>
 
   <dependencyManagement>
@@ -79,6 +79,15 @@
       <groupId>ch.qos.logback</groupId>
       <artifactId>logback-classic</artifactId>
       <version>1.4.11</version>
+    </dependency>
+    <dependency>
+      <groupId>io.vertx</groupId>
+      <artifactId>vertx-micrometer-metrics</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>io.micrometer</groupId>
+      <artifactId>micrometer-registry-prometheus</artifactId>
+      <version>1.10.5</version>
     </dependency>
 
     <!-- Security -->

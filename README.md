@@ -6,6 +6,7 @@ A high-performance, reactive microservice built with **Eclipse Vert.x**. This ap
 ## Architecture
 The system is modularized into specialized Verticles, communicating strictly via the Vert.x Event Bus.
 
+- **[AppLauncher](src/main/java/ziadatari/ReactiveAPI/main/AppLauncher.java)**: Custom entry point that configures Micrometer metrics before starting Vert.x.
 - **[MainVerticle](src/main/java/ziadatari/ReactiveAPI/main/MainVerticle.java)**: Bootstraps the application and orchestrates verticle deployment.
 - **[HttpVerticle](src/main/java/ziadatari/ReactiveAPI/web/HttpVerticle.java)**: Manages the HTTP server, routing, and connection pooling.
 - **[AuthVerticle](src/main/java/ziadatari/ReactiveAPI/auth/AuthVerticle.java)**: Handles RS256 JWT issuance and verification.
@@ -16,6 +17,7 @@ For detailed system documentation, please refer to the [Documentation/Systems](D
 - [Authentication System](Documentation/Systems/Authentication.md)
 - [Router & API](Documentation/Systems/Router.md)
 - [Repository Layer](Documentation/Systems/Repository.md)
+- [Metrics & Monitoring](Documentation/Systems/Metric.md)
 - [Exception Handling](Documentation/Systems/Exceptions.md)
 - [JWT Lifecycle](Documentation/Systems/JWTLifecycle.md)
 
@@ -51,6 +53,10 @@ mvn clean package
 java -jar target/reactive-rest-api-1.0.0-SNAPSHOT-fat.jar
 ```
 The server will start on `http://localhost:8888`.
+
+#### Option 3: Docker
+mvn clean package
+java -jar target/ReactiveAPI-1.0.0-SNAPSHOT-fat.jar
 
 ## API Usage
 
@@ -128,6 +134,29 @@ curl -X DELETE http://localhost:8888/v3/employees/550e8400-e29b... \
   -H "Authorization: Bearer <token>"
 ```
 
+### Health Checks
+#### 7. Liveness Probe
+**GET** `/health/live`
+Unauthenticated endpoint to check if the server is running.
+```bash
+curl -v http://localhost:8888/health/live
+```
+**Response:**
+```json
+{
+  "outcome": "UP"
+}
+```
+
+### Monitoring & Metrics
+#### 8. Prometheus Metrics
+**GET** `/metrics`
+Exposes application telemetry in Prometheus format, including HTTP summaries, login success/failure counters, and circuit breaker status.
+```bash
+curl http://localhost:8888/metrics
+```
+See [Metric.md](Documentation/Systems/Metric.md) for a full reference of available metrics.
+
 ## Project Structure
 | Package | Description |
 | :--- | :--- |
@@ -142,7 +171,8 @@ curl -X DELETE http://localhost:8888/v3/employees/550e8400-e29b... \
 ## Changelog
 
 #### V4: Production Grade Features
-* **v4.0.0** Metrics & Monitoring added
+* **v4.1.0** Prometheus Metrics & Monitoring added
+* **v4.0.0** Health API checks added
 
 #### V3: Authentication
 * **v3.4.0** JSON Schema Validation & Batch Updates added

@@ -35,7 +35,7 @@ The Repository system manages data persistence and business logic orchestration 
     - Verifies password hash.
     - Returns `UserContextDTO` (username, role) on success or fails with `UNAUTHORIZED`.
 
-### [User.java](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/src/main/java/ziadatari/ReactiveAPI/domain/User.java)
+### [User.java](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/src/main/java/ziadatari/ReactiveAPI/repository/User.java)
 - **Purpose**: Domain entity representing a system user.
 - **Fields**: `username`, `password_hash`, `id`.
 

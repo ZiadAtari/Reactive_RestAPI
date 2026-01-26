@@ -13,6 +13,8 @@ import ziadatari.ReactiveAPI.auth.VerificationHandler;
 import io.vertx.ext.web.client.WebClientOptions;
 import io.vertx.ext.healthchecks.HealthCheckHandler;
 
+import io.vertx.micrometer.PrometheusScrapingHandler;
+
 /**
  * Verticle responsible for running the HTTP server.
  * It sets up the web router, registers middleware (Rate Limiting, IP
@@ -53,6 +55,9 @@ public class HttpVerticle extends AbstractVerticle {
 
     // 1. BodyHandler: Essential for reading JSON bodies from incoming requests.
     router.route().handler(BodyHandler.create());
+
+    // --- METRICS ---
+    router.route("/metrics").handler(PrometheusScrapingHandler.create());
 
     // --- HEALTH CHECKS ---
     HealthCheckHandler healthCheckHandler = HealthCheckHandler.create(vertx);

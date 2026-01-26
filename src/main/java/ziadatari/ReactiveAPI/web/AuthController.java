@@ -46,6 +46,10 @@ public class AuthController {
             // Step 2: Authenticate User
             vertx.eventBus().request("users.authenticate", loginRequest.toJson(), authReply -> {
                 if (authReply.succeeded()) {
+                    // Success Counter
+                    io.vertx.micrometer.backends.BackendRegistries.getDefaultNow()
+                            .counter("api_auth_attempts_total", "result", "success").increment();
+
                     // Step 3: Issue Token
                     vertx.eventBus().request("auth.token.issue",
                             new JsonObject().put("username", loginRequest.getUsername()),
@@ -60,6 +64,9 @@ public class AuthController {
                                 }
                             });
                 } else {
+                    // Failure Counter
+                    io.vertx.micrometer.backends.BackendRegistries.getDefaultNow()
+                            .counter("api_auth_attempts_total", "result", "failure").increment();
                     GlobalErrorHandler.handle(ctx, authReply.cause());
                 }
             });
