@@ -28,7 +28,7 @@ public class MainVerticle extends AbstractVerticle {
     String dbPassword = System.getenv("DB_PASSWORD");
     if (dbPassword == null || dbPassword.isEmpty()) {
       logger.warn("DB_PASSWORD environment variable is not set. Using default.");
-      dbPassword = "secret";
+      dbPassword = "Zatari4321";
     }
 
     JsonObject dbconfig = new JsonObject()
