@@ -39,12 +39,12 @@ public class AppLauncher extends Launcher {
                 .meterFilter(new MeterFilter() {
                     @Override
                     public DistributionStatisticConfig configure(Meter.Id id, DistributionStatisticConfig config) {
-                        if (id.getName().startsWith("http.server.requests") || id.getName().startsWith("vertx.http.server.requests")) {
+                        if (id.getName().startsWith("http.server.requests")
+                                || id.getName().startsWith("vertx.http.server.response.time")) {
                             return DistributionStatisticConfig.builder()
-                                    // Default is false for percentilesHistogram, so we can omit it to fix the error
                                     .serviceLevelObjectives(
                                             0.1, 0.5, 1.0, 5.0, 10.0 // 100ms, 500ms, 1s, 5s, 10s
-                                    )
+                            )
                                     .build()
                                     .merge(config);
                         }

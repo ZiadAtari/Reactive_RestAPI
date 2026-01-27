@@ -1,78 +1,125 @@
-# v4.2 Metrics Catalog
+# v4.2 Metrics Catalog & Usage Guide
 
-This document organizes the available Prometheus metrics by domain and importance.
+This document organizes the available Prometheus metrics and provides instructions on how to query, filter, and aggregate them.
+
+## 0. Query Fundamentals (Must Read)
+
+### A. Units & Scaling
+*   **Time**: All `_seconds` metrics are in **Seconds**.
+    *   To view in **Milliseconds**, multiply by 1000: `metric * 1000`.
+*   **Percentages**: Ratios are `0.0-1.0`.
+    *   To view as **Percentage**, multiply by 100: `metric * 100`.
+
+### B. Filtering (Labels)
+Metrics are multidimensional. Narrow down data by appending `{label="value"}`.
+*   **By Method**: `vertx_http_server_response_time_seconds_count{method="POST"}`
+*   **By Route**: `vertx_http_server_response_time_seconds_count{route="/login"}`
+*   **By Code**: `vertx_http_server_response_time_seconds_count{code="500"}`
+*   **Regex**: `vertx_http_server_response_time_seconds_count{code=~"5.."}` (Any 5xx error)
+
+### C. Aggregation (Summing)
+When running multiple instances (or just to remove labels), use `sum` and `rate`.
+*   **Global Total**: `sum(rate(metric[1m]))` -> One line.
+*   **Grouped**: `sum(rate(metric[1m])) by (route)` -> One line per route.
+
+---
 
 ## 1. High Priority (Golden Signals)
-These metrics are critical for dashboards and alerting.
+**Focus**: Operational Health & Business Criticality.
 
-| Metric | Type | Description |
-| :--- | :--- | :--- |
-| **`up`** | Unknown | Returns `1` if the instance is reachable, `0` otherwise. Used for `InstanceDown` alerts. |
-| **`api_auth_attempts_total`** | Counter | **Business Metric**: Tracks login attempts. Labels: `result=success|failure`. |
-| **`circuit_breaker_state`** | Gauge | **Health Metric**: State of the circuit breaker (`0=CLOSED`, `1=OPEN`, `2=HALF_OPEN`). |
+| Metric | Type | Labels | Description |
+| :--- | :--- | :--- | :--- |
+| **`up`** | Gauge | `job`, `instance` | `1` if reachable, `0` if down. |
+| **`api_auth_attempts_total`** | Counter | `result` | Login attempts. Filter by `result="failure"` to detect attacks. |
+| **`circuit_breaker_state`** | Gauge | `name` | `0`=Closed (OK), `1`=Open (Fail), `2`=Half-Open (Testing). |
+
+### Example Queries
+*   **Current Failure Count**: `sum(api_auth_attempts_total{result="failure"})`
+*   **Circuit Breaker Status**: `max(circuit_breaker_state)`
 
 ---
 
 ## 2. HTTP Server (Inbound Traffic)
-Metrics related to requests received by the ReactiveAPI.
+**Focus**: User Experience (Latency & Errors).
+**Labels**: `method`, `code`, `route`, `instance`
 
-### Latency & Traffic
 | Metric | Type | Description |
 | :--- | :--- | :--- |
-| **`vertx_http_server_requests_total`** | Counter | Total number of processed requests. Use `rate()` to calculate RPS. |
-| **`vertx_http_server_active_requests`** | Gauge | Current number of in-flight requests. |
-| **`vertx_http_server_active_connections`** | Gauge | Current number of open TCP connections. |
 | **`vertx_http_server_response_time_seconds_bucket`** | Histogram | **CRITICAL**: Latency distribution buckets (`0.1`, `0.5`, `1.0`...). Use for P95/P99. |
-| `vertx_http_server_response_time_seconds_count` | Histogram | Total count of observed requests (same as `requests_total`). |
-| `vertx_http_server_response_time_seconds_sum` | Histogram | Total sum of all request durations. Used for Average Latency. |
-| `vertx_http_server_response_time_seconds_max` | Gauge | The slowest request observed in the current window. |
+| `vertx_http_server_response_time_seconds_count` | Histogram | Total count of observed requests. **Preferred over `requests_total`** as it shares labels with latency metrics. |
+| `vertx_http_server_response_time_seconds_sum` | Histogram | Total time (in seconds) spent serving requests. |
+| **`vertx_http_server_active_requests`** | Gauge | Current in-flight requests (Concurrency). |
+| `vertx_http_server_active_connections` | Gauge | Current open TCP connections. |
+| `vertx_http_server_bytes_written_total` | Counter | Total response size in bytes. |
 
-### Low Priority (Payload Sizes)
-*   `vertx_http_server_request_bytes_*`: Size of incoming bodies.
-*   `vertx_http_server_response_bytes_*`: Size of outgoing bodies.
+### Example Queries
+*   **Global RPS (Success Only, No Noise)**:
+    `sum(rate(vertx_http_server_response_time_seconds_count{code="200", route!="/metrics"}[1m]))`
+    
+*   **Error Rate % (Business Only, 5xx)**: 
+    ```promql
+    (sum(rate(vertx_http_server_response_time_seconds_count{code=~"5..", route!="/metrics"}[1m])) 
+    / 
+    sum(rate(vertx_http_server_response_time_seconds_count{route!="/metrics"}[1m]))) * 100
+    ```
+
+*   **Average Latency (ms)**:
+    ```promql
+    (sum(rate(vertx_http_server_response_time_seconds_sum[1m])) 
+    / 
+    sum(rate(vertx_http_server_response_time_seconds_count[1m]))) * 1000
+    ```
+
+*   **P95 Latency (ms)**: 
+    ```promql
+    histogram_quantile(0.95, sum(rate(vertx_http_server_response_time_seconds_bucket[5m])) by (le)) * 1000
+    ```
 
 ---
 
 ## 3. Database (Connection Pool)
-Metrics related to the MySQL Reactive Client.
+**Focus**: Backend Bottlenecks.
+**Labels**: `pool_name`, `pool_type`
 
 | Metric | Type | Description |
 | :--- | :--- | :--- |
-| **`vertx_pool_ratio`** | Gauge | Pool utilization ratio (0.0 to 1.0). High ratio = Pool exhaustion risk. |
-| **`vertx_pool_in_use`** | Gauge | Number of connections currently borrowed. |
-| **`vertx_pool_queue_pending`** | Gauge | Number of queries waiting for a connection. Should be 0. |
-| `vertx_pool_queue_time_seconds_bucket` | Histogram | Time spent waiting for a connection. |
-| `vertx_pool_usage_seconds_bucket` | Histogram | Time a connection was held by a query. |
+| **`vertx_pool_ratio`** | Gauge | Pool usage (0.0 - 1.0). > 0.8 is critical. |
+| **`vertx_pool_queue_pending`** | Gauge | Requests waiting for a connection. Must be 0. |
+| `vertx_pool_in_use` | Gauge | Active connections. |
+| `vertx_pool_usage_seconds_bucket` | Histogram | Time spent holding a connection. |
+| `vertx_pool_completed_total` | Counter | Total connections returned to pool. |
+
+### Example Queries
+*   **Pool Saturation**: `max(vertx_pool_ratio)`
+*   **Pending Queries**: `sum(vertx_pool_queue_pending)`
 
 ---
 
 ## 4. HTTP Client (Outbound Traffic)
-Metrics related to calls made **to** external services (e.g., DemoAPI).
+**Focus**: Dependency Health (DemoAPI).
+**Labels**: `method`, `code`, `host`
 
 | Metric | Type | Description |
 | :--- | :--- | :--- |
-| **`vertx_http_client_requests_total`** | Counter | Total outgoing requests. |
-| `vertx_http_client_response_time_seconds_bucket` | Histogram | Latency of external service calls. |
-| `vertx_http_client_active_requests` | Gauge | Number of external requests waiting for response. |
+| **`vertx_http_client_response_time_seconds_bucket`** | Histogram | Latency of dependency calls. |
+| `vertx_http_client_requests_total` | Counter | Total outgoing requests. |
+| `vertx_http_client_active_requests` | Gauge | Pending external calls. |
+
+### Example Queries
+*   **Dependency Latency (P95 ms)**: 
+    `histogram_quantile(0.95, sum(rate(vertx_http_client_response_time_seconds_bucket[5m])) by (le)) * 1000`
 
 ---
 
 ## 5. Event Bus (Internal Messaging)
-Metrics for the Vert.x Event Bus (communication between Verticles).
+**Focus**: Internal component communication.
+**Labels**: `address`
 
 | Metric | Type | Description |
 | :--- | :--- | :--- |
-| `vertx_eventbus_handlers` | Gauge | Number of registered consumers. |
-| `vertx_eventbus_pending` | Gauge | Messages queued but not yet processed. High value = Event Loop Blockage. |
-| `vertx_eventbus_processed_total` | Counter | Throughput of internal messages. |
-| `vertx_eventbus_reply_failures_total` | Counter | timed-out or failed internal RPCs. |
+| `vertx_eventbus_pending` | Gauge | Messages queued but not processed. High = Blocked Event Loop. |
+| `vertx_eventbus_processed_total` | Counter | Message throughput. |
+| `vertx_eventbus_discarded_total` | Counter | Messages dropped due to overflow. |
 
----
-
-## 6. Internal / Noise
-These metrics are generally for debugging the scraper itself.
-
-*   `scrape_duration_seconds`
-*   `scrape_samples_scraped`
-*   `scrape_samples_post_metric_relabeling`
-*   `scrape_series_added`
+### Example Queries
+*   **Event Loop Backlog**: `sum(vertx_eventbus_pending) by (address)`

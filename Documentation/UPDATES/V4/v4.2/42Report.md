@@ -1,44 +1,44 @@
 # v4.2 Report: Native Metrics Verification
 
-This document provides the PromQL expressions required to visualize the application's performance directly in Prometheus.
+This document provides the PromQL expressions required to visualize the application's performance directly in Prometheus, formatted for readability (Milliseconds, Percentages).
 
-## 1. Response Times
+## 1. Response Times (Milliseconds)
 
-### Average Response Time
-Calculates the global average latency per second.
+### Average Response Time (ms)
 ```promql
-sum(rate(vertx_http_server_requests_seconds_sum[1m]))
-/
-sum(rate(vertx_http_server_requests_seconds_count[1m]))
+(
+  sum(rate(vertx_http_server_response_time_seconds_sum[1m]))
+  /
+  sum(rate(vertx_http_server_response_time_seconds_count[1m]))
+) * 1000
+```
+*Note: Multiplied by 1000 to convert Seconds to Milliseconds.*
+
+### 95th Percentile Latency (P95 ms)
+```promql
+histogram_quantile(0.95, sum(rate(vertx_http_server_response_time_seconds_bucket[5m])) by (le)) * 1000
 ```
 
-### 95th Percentile Latency (P95)
-Estimates the latency value that 95% of requests fall below.
-**Requires:** Server-side Histograms (Buckets).
+### Maximum Response Time (ms)
 ```promql
-histogram_quantile(0.95, sum(rate(vertx_http_server_requests_seconds_bucket[5m])) by (le))
+max_over_time(vertx_http_server_response_time_seconds_max[1m]) * 1000
 ```
 
-### Maximum Response Time
-Shows the slowest request in the sampled period.
-```promql
-max_over_time(vertx_http_server_requests_seconds_max[1m])
-```
+## 2. Failure Analysis (Business Only)
 
-## 2. Failure Analysis
+To prevent "Noise Dilution" (where thousands of successful health/metric checks hide the real errors), we exclude technical routes.
 
 ### Total Failed Calls (5xx)
-Count of internal server errors per second.
 ```promql
-sum(rate(vertx_http_server_requests_seconds_count{code=~"5.."}[1m]))
+sum(rate(vertx_http_server_response_time_seconds_count{code=~"5.."}[1m]))
 ```
 
 ### Failure Rate (%)
-Percentage of requests resulting in a 5xx error.
 ```promql
 (
-  sum(rate(vertx_http_server_requests_seconds_count{code=~"5.."}[1m]))
+  sum(rate(vertx_http_server_response_time_seconds_count{code=~"5..", route!="/metrics", route!="/health/live"}[1m]))
   /
-  sum(rate(vertx_http_server_requests_seconds_count[1m]))
+  sum(rate(vertx_http_server_response_time_seconds_count{route!="/metrics", route!="/health/live"}[1m]))
 ) * 100
 ```
+*Note: Excludes `/metrics` and `/health/live` to show the true Error Rate of business logic.*
