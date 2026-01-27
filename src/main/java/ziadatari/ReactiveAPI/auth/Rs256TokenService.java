@@ -1,6 +1,7 @@
 package ziadatari.ReactiveAPI.auth;
 
 import io.vertx.core.Future;
+import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.auth.JWTOptions;
 import io.vertx.ext.auth.jwt.JWTAuth;
@@ -19,6 +20,7 @@ import java.util.concurrent.atomic.AtomicReference;
 public class Rs256TokenService implements TokenService {
 
     private static final Logger logger = LoggerFactory.getLogger(Rs256TokenService.class);
+    private final Vertx vertx;
     private final JWTAuth jwtAuth;
     private final AtomicReference<String> cachedToken = new AtomicReference<>();
     private final AtomicLong expirationTime = new AtomicLong(0);
@@ -27,12 +29,14 @@ public class Rs256TokenService implements TokenService {
     // Refresh 5min b4 expiry
     private static final long REFRESH_BUFFER_SECONDS = 300;
 
-    public Rs256TokenService(JWTAuth jwtAuth) {
+    public Rs256TokenService(Vertx vertx, JWTAuth jwtAuth) {
+        this.vertx = vertx;
         this.jwtAuth = jwtAuth;
         this.initErrorMessage = null;
     }
 
     public Rs256TokenService(String initErrorMessage) {
+        this.vertx = null;
         this.jwtAuth = null;
         this.initErrorMessage = initErrorMessage;
     }
@@ -139,14 +143,18 @@ public class Rs256TokenService implements TokenService {
                 .put("sub", username)
                 .put("role", "user"); // Simple role model for now
 
-        try {
-            String newToken = jwtAuth.generateToken(claims, options);
-            logger.info("Generated User JWT for '{}'. Expires in {} seconds", username, expiresInSeconds);
-            return Future.succeededFuture(newToken);
-        } catch (Exception e) {
-            logger.error("Failed to generate User JWT", e);
-            return Future.failedFuture(new ServiceException(ErrorCode.INTERNAL_SERVER_ERROR,
-                    "Token generation failed: " + e.getMessage()));
-        }
+        // Wrap dangerous RSA signing in executeBlocking to protect the Event Loop
+        // from stalling during high contention.
+        return vertx.executeBlocking(promise -> {
+            try {
+                String newToken = jwtAuth.generateToken(claims, options);
+                logger.info("Generated User JWT for '{}'. Expires in {} seconds", username, expiresInSeconds);
+                promise.complete(newToken);
+            } catch (Exception e) {
+                logger.error("Failed to generate User JWT", e);
+                promise.fail(new ServiceException(ErrorCode.INTERNAL_SERVER_ERROR,
+                        "Token generation failed: " + e.getMessage()));
+            }
+        });
     }
 }

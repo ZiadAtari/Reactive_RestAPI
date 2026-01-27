@@ -23,7 +23,8 @@ The system employs a **Dual-Token Strategy**:
 - **Purpose**: Manages the life-cycle of JWT tokens.
 - **Key Features**:
     - **Service Token Generation**: Signs tokens for service-to-service calls (cached, auto-refresh).
-    - **User Token Generation**: Generates short-lived (15m) tokens for users with `sub` and `role` claims (role is currently fixed as "user").
+    - **User Token Generation**: Generates short-lived (15m) tokens for users.
+    - **Event Loop Protection**: Uses `vertx.executeBlocking` for RSA signing to prevent blocking the event loop during high load (v4.3 Update).
     - **Signing**: Uses the loaded RSA Private Key.
 
 ### [MainVerticle](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/src/main/java/ziadatari/ReactiveAPI/main/MainVerticle.java)
@@ -36,8 +37,8 @@ The system employs a **Dual-Token Strategy**:
 ## Authentication Flows
 
 ### 1. User Login Flow (`POST /login`)
-The user authenticates to receive a token. The request is first **validated against a JSON Schema** to ensure required fields are present.
-> **Observability**: Login attempts are tracked via the `api_auth_attempts_total` counter (labels: `result=success|failure`).
+The user authenticates to receive a token. The request is **guarded by a dedicated Circuit Breaker** (`auth-login`) to fail fast during overloads.
+> **Observability**: Login attempts are tracked via `api_auth_attempts_total` and breaker status via `circuit_breaker_state{name="auth-login"}`.
 
 ```mermaid
 sequenceDiagram
@@ -50,11 +51,12 @@ sequenceDiagram
     Client->>AuthCtrl: POST /login (LoginRequestDTO)
     AuthCtrl->>Val: validateLogin(body)
     Note over Val: Fail-Fast if invalid
+    AuthCtrl->>AuthCtrl: Circuit Breaker Check
     AuthCtrl->>UserV: users.authenticate (LoginRequestDTO)
     Note over UserV: BCrypt Check (Blocking)
     UserV-->>AuthCtrl: User OK
     AuthCtrl->>AuthV: auth.token.issue
-    Note over AuthV: Sign with Private Key
+    Note over AuthV: Sign (executeBlocking)
     AuthV-->>AuthCtrl: JWT Token
     AuthCtrl-->>Client: 200 OK { token }
 ```

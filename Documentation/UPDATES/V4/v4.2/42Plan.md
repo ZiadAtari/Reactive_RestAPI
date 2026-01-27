@@ -21,7 +21,6 @@ Refine `AppLauncher.java` to emit sanitized **Histogram Buckets** instead of sum
 ### 2. Infrastructure
 #### [MODIFY] [docker-compose.yml](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/Metrics/Prometheus/docker-compose.yml)
 - Add `alertmanager` service (Port 9093).
-- Ensure `grafana` is **actions excluded**.
 
 ### 3. Configuration (Alerting)
 #### [NEW] [prometheus/alert_rules.yml](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/Metrics/Prometheus/alert_rules.yml)

@@ -42,6 +42,7 @@ public class CustomCircuitBreaker {
      * Creates a new CustomCircuitBreaker.
      *
      * @param vertx              the Vert.x instance for scheduling timers
+     * @param name               the name of the circuit breaker (for metrics)
      * @param executionTimeoutMs max time (in ms) to wait for an operation before
      *                           considering it a failure
      * @param resetTimeoutMs     time (in ms) to wait in OPEN state before
@@ -49,7 +50,8 @@ public class CustomCircuitBreaker {
      * @param maxFailures        number of consecutive failures required to trip the
      *                           circuit
      */
-    public CustomCircuitBreaker(Vertx vertx, long executionTimeoutMs, long resetTimeoutMs, int maxFailures) {
+    public CustomCircuitBreaker(Vertx vertx, String name, long executionTimeoutMs, long resetTimeoutMs,
+            int maxFailures) {
         this.vertx = vertx;
         this.executionTimeoutMs = executionTimeoutMs;
         this.resetTimeoutMs = resetTimeoutMs;
@@ -58,7 +60,8 @@ public class CustomCircuitBreaker {
         io.micrometer.core.instrument.MeterRegistry registry = io.vertx.micrometer.backends.BackendRegistries
                 .getDefaultNow();
         if (registry != null) {
-            registry.gauge("circuit_breaker_state", state, s -> {
+            io.micrometer.core.instrument.Tags tags = io.micrometer.core.instrument.Tags.of("name", name);
+            registry.gauge("circuit_breaker_state", tags, state, s -> {
                 if (s.get() == State.CLOSED)
                     return 0;
                 if (s.get() == State.OPEN)

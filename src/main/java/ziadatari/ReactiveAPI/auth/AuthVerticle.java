@@ -44,7 +44,7 @@ public class AuthVerticle extends AbstractVerticle {
                             .setBuffer(privateKey));
 
             JWTAuth jwtAuth = JWTAuth.create(vertx, jwtOptions);
-            this.tokenService = new Rs256TokenService(jwtAuth);
+            this.tokenService = new Rs256TokenService(vertx, jwtAuth);
 
             // Register Event Bus consumers
             vertx.eventBus().consumer("auth.token.get", this::handleTokenRequest);

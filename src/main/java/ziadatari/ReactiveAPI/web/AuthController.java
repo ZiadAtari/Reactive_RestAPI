@@ -1,5 +1,6 @@
 package ziadatari.ReactiveAPI.web;
 
+import io.vertx.core.Promise;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.web.RoutingContext;
@@ -14,9 +15,11 @@ import ziadatari.ReactiveAPI.exception.ServiceException;
 public class AuthController {
 
     private final Vertx vertx;
+    private final CustomCircuitBreaker circuitBreaker;
 
-    public AuthController(Vertx vertx) {
+    public AuthController(Vertx vertx, CustomCircuitBreaker circuitBreaker) {
         this.vertx = vertx;
+        this.circuitBreaker = circuitBreaker;
     }
 
     /**
@@ -43,32 +46,41 @@ public class AuthController {
 
             LoginRequestDTO loginRequest = new LoginRequestDTO(body);
 
-            // Step 2: Authenticate User
-            vertx.eventBus().request("users.authenticate", loginRequest.toJson(), authReply -> {
-                if (authReply.succeeded()) {
-                    // Success Counter
-                    io.vertx.micrometer.backends.BackendRegistries.getDefaultNow()
-                            .counter("api_auth_attempts_total", "result", "success").increment();
+            // Step 2: Execute Authentication Flow protected by Circuit Breaker
+            circuitBreaker.execute(() -> {
+                Promise<String> promise = Promise.promise();
 
-                    // Step 3: Issue Token
-                    vertx.eventBus().request("auth.token.issue",
-                            new JsonObject().put("username", loginRequest.getUsername()),
-                            tokenReply -> {
-                                if (tokenReply.succeeded()) {
-                                    String token = (String) tokenReply.result().body();
-                                    ctx.response()
-                                            .putHeader("content-type", "application/json")
-                                            .end(new JsonObject().put("token", token).encode());
-                                } else {
-                                    GlobalErrorHandler.handle(ctx, tokenReply.cause());
-                                }
-                            });
-                } else {
-                    // Failure Counter
-                    io.vertx.micrometer.backends.BackendRegistries.getDefaultNow()
-                            .counter("api_auth_attempts_total", "result", "failure").increment();
-                    GlobalErrorHandler.handle(ctx, authReply.cause());
-                }
+                // 2.1 Authenticate User
+                vertx.eventBus().request("users.authenticate", loginRequest.toJson(), authReply -> {
+                    if (authReply.succeeded()) {
+                        // Success Counter
+                        io.vertx.micrometer.backends.BackendRegistries.getDefaultNow()
+                                .counter("api_auth_attempts_total", "result", "success").increment();
+
+                        // 2.2 Issue Token
+                        vertx.eventBus().request("auth.token.issue",
+                                new JsonObject().put("username", loginRequest.getUsername()),
+                                tokenReply -> {
+                                    if (tokenReply.succeeded()) {
+                                        promise.complete((String) tokenReply.result().body());
+                                    } else {
+                                        promise.fail(tokenReply.cause());
+                                    }
+                                });
+                    } else {
+                        // Failure Counter
+                        io.vertx.micrometer.backends.BackendRegistries.getDefaultNow()
+                                .counter("api_auth_attempts_total", "result", "failure").increment();
+                        promise.fail(authReply.cause());
+                    }
+                });
+                return promise.future();
+            }).onSuccess(token -> {
+                ctx.response()
+                        .putHeader("content-type", "application/json")
+                        .end(new JsonObject().put("token", token).encode());
+            }).onFailure(err -> {
+                GlobalErrorHandler.handle(ctx, err);
             });
         } catch (Exception e) {
             GlobalErrorHandler.handle(ctx, e);

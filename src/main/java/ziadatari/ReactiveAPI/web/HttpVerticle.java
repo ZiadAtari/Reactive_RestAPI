@@ -48,7 +48,11 @@ public class HttpVerticle extends AbstractVerticle {
 
     // --- CONTROLLER ---
     EmployeeController controller = new EmployeeController(vertx);
-    AuthController authController = new AuthController(vertx);
+    // Initialize Circuit Breakers first
+    // 1. Login Circuit Breaker (Protecting Auth Pipeline)
+    // Timeout: 1000ms (BCrypt is slow), Reset: 2000ms, Failures: 5
+    CustomCircuitBreaker loginCB = new CustomCircuitBreaker(vertx, "auth-login", 1000, 2000, 5);
+    AuthController authController = new AuthController(vertx, loginCB);
 
     // --- ROUTER & MIDDLEWARE ---
     Router router = Router.router(vertx);
@@ -68,14 +72,15 @@ public class HttpVerticle extends AbstractVerticle {
     router.route().handler(new RateLimitHandler(vertx, 100, 1000));
 
     // 3. Routing and Middleware setup
-    // Config: 500ms timeout, 800ms reset, 5 failures max
-    CustomCircuitBreaker circuitBreaker = new CustomCircuitBreaker(vertx, 500, 800, 5);
+    // Verification Circuit Breakers (Split for V1 and V3 isolation)
+    CustomCircuitBreaker v1VerificationCB = new CustomCircuitBreaker(vertx, "v1-verify", 500, 800, 5);
+    CustomCircuitBreaker v3VerificationCB = new CustomCircuitBreaker(vertx, "v3-verify", 500, 800, 5);
 
     // V1 Middlewares: No Auth verification calling /v1/ip
-    router.route("/v1/*").handler(new VerificationHandler(webClient, circuitBreaker, "/v1/ip", false));
+    router.route("/v1/*").handler(new VerificationHandler(webClient, v1VerificationCB, "/v1/ip", false));
 
     // V3 Middlewares: Auth verification calling /v3/ip
-    router.route("/v3/*").handler(new VerificationHandler(webClient, circuitBreaker, "/v3/ip", true));
+    router.route("/v3/*").handler(new VerificationHandler(webClient, v3VerificationCB, "/v3/ip", true));
 
     // JWT Auth Handler for protected routes
     JwtAuthHandler jwtAuthHandler = new JwtAuthHandler(vertx, config());

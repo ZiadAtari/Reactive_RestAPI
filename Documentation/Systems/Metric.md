@@ -9,6 +9,7 @@ The Metrics system provides real-time observability into the application's perfo
 - **Config**:
     - Enables Prometheus reporting.
     - Sets labels: `HTTP_METHOD`, `HTTP_CODE`, `HTTP_ROUTE`.
+    - **Histogram Buckets**: Configures explicit SLA buckets (`0.1, 0.5, 1.0, 5.0, 10.0` seconds) for accurate P95/P99 latency calculation.
     - This is the entry point for the application.
 
 ### [HttpVerticle](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/src/main/java/ziadatari/ReactiveAPI/web/HttpVerticle.java)
@@ -34,8 +35,15 @@ Custom metrics instrumented in the code.
 ### 3. Resilience Metrics
 *   **Circuit Breaker State**:
     *   **Metric**: `circuit_breaker_state` (Gauge)
+    *   **Labels**: `name` (e.g., `auth-login`, `v1-verify`, `v3-verify`).
     *   **Values**: `0` = CLOSED (Healthy), `1` = OPEN (Failing), `2` = HALF_OPEN (Probing).
     *   **Source**: `CustomCircuitBreaker.java`
+
+## Alerting ([alert_rules.yml](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/Metrics/Prometheus/alert_rules.yml))
+The system is monitored by **AlertManager** (Port 9093) with the following critical rules:
+1.  **InstanceDown**: Target unreachable for >30s.
+2.  **HighErrorRate**: 5xx Error Rate > 5%.
+3.  **HighLatency**: P95 Latency > 500ms.
 
 ## Scrape Configuration
 Prometheus should be configured to scrape the target at `http://<host>:8888/metrics` every 15-60 seconds.

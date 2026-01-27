@@ -10,6 +10,7 @@ The Router system manages the HTTP interface, request routing, and middleware in
 - **Key Features**:
     - Registers global error handlers and body parsers.
     - Mounts versioned API routes (`/v1/*` for legacy, `/v3/*` for authenticated).
+    - **Resilience**: Initializes **three isolated Circuit Breakers** (`auth-login`, `v1-verify`, `v3-verify`) to prevent failure cascades.
     - **Observability**: Exposes Prometheus metrics at `/metrics`.
     - Uses a `Future.all` during startup to track deployment status.
     - **Performance**: Configures the `WebClient` with a connection pool (max 100 connections) for high-concurrency external verification.
@@ -25,6 +26,7 @@ The Router system manages the HTTP interface, request routing, and middleware in
 
 ### [AuthController](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/src/main/java/ziadatari/ReactiveAPI/web/AuthController.java)
 - **Purpose**: Handles user login requests (`POST /login`).
+- **Resilience**: Wrapped in `auth-login` Circuit Breaker to prevent system overload during attacks or DB failures.
 - **Workflow**:
     1. **Validation**: Validates request body using `SchemaValidator` (ensures `username`/`password` presence).
     2. requests authentication from `UserVerticle` passing the DTO JSON.
@@ -58,7 +60,11 @@ The Router system manages the HTTP interface, request routing, and middleware in
     - **Max Failures**: 5.
 - **Features**:
     - Simple implementation of the Circuit Breaker pattern.
-    - Transitions between `CLOSED`, `OPEN`, and `HALF_OPEN` states to isolate external failures.
+    - Transition between `CLOSED`, `OPEN`, and `HALF_OPEN` states.
+    - **Failure Domain Isolation**:
+        - `auth-login`: Protects Authentication (Timeout: 1000ms).
+        - `v1-verify`: Protects Legacy Verification (Timeout: 500ms).
+        - `v3-verify`: Protects Authenticated Verification (Timeout: 500ms).
 
 ### Health Checks
 - **HealthCheckHandler**:
@@ -70,8 +76,11 @@ The Router system manages the HTTP interface, request routing, and middleware in
 2. **Middleware Layer**:
     - `BodyHandler` parses JSON.
     - `RateLimitHandler` checks IP quotas.
-    - `VerificationHandler` verifies IP with Demo service (guarded by `CustomCircuitBreaker`).
+    - `RateLimitHandler` checks IP quotas.
+    - `VerificationHandler` verifies IP with Demo service (guarded by isolated `v1/v3-verify` Circuit Breakers).
     - `HealthCheckHandler` responds to `/health/live`.
-3. **Controller Layer**: `EmployeeController` routes the request based on URL and Verb.
+3. **Controller Layer**: 
+    - `AuthController`: Executes login logic guarded by `auth-login` Circuit Breaker.
+    - `EmployeeController`: Routes the request based on URL and Verb.
 4. **Service Layer**: Event Bus message sent to `EmployeeVerticle`.
 5. **Response**: Success response formatted by controller or failure handled by `GlobalErrorHandler`.
