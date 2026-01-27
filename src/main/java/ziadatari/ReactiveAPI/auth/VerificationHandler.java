@@ -19,6 +19,8 @@ public class VerificationHandler implements Handler<RoutingContext> {
     private final WebClient webClient;
     private final CustomCircuitBreaker circuitBreaker;
     private final String verificationPath;
+    private final String host;
+    private final int port;
     private final boolean requireAuth;
 
     /**
@@ -28,13 +30,17 @@ public class VerificationHandler implements Handler<RoutingContext> {
      * @param circuitBreaker   circuit breaker to protect against external failures
      * @param verificationPath the path to call on the demo service (e.g. /v1/ip or
      *                         /v3/ip)
+     * @param host             the hostname of the verification service
+     * @param port             the port of the verification service
      * @param requireAuth      whether to include a JWT token in the request
      */
     public VerificationHandler(WebClient webClient, CustomCircuitBreaker circuitBreaker,
-            String verificationPath, boolean requireAuth) {
+            String verificationPath, String host, int port, boolean requireAuth) {
         this.webClient = webClient;
         this.circuitBreaker = circuitBreaker;
         this.verificationPath = verificationPath;
+        this.host = host;
+        this.port = port;
         this.requireAuth = requireAuth;
     }
 
@@ -80,7 +86,7 @@ public class VerificationHandler implements Handler<RoutingContext> {
      */
     private void performVerification(RoutingContext ctx, String ip, String token) {
         circuitBreaker.execute(() -> {
-            var request = webClient.get(8080, "localhost", verificationPath)
+            var request = webClient.get(port, host, verificationPath)
                     .addQueryParam("address", ip);
 
             // Inject Bearer Token if available (for /v3/ip)

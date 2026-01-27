@@ -76,11 +76,17 @@ public class HttpVerticle extends AbstractVerticle {
     CustomCircuitBreaker v1VerificationCB = new CustomCircuitBreaker(vertx, "v1-verify", 500, 800, 5);
     CustomCircuitBreaker v3VerificationCB = new CustomCircuitBreaker(vertx, "v3-verify", 500, 800, 5);
 
+    // V3 Middlewares: Auth verification calling /v3/ip
+    String verifyHost = config().getString("verification.host", "localhost");
+    int verifyPort = config().getInteger("verification.port", 8080);
+
     // V1 Middlewares: No Auth verification calling /v1/ip
-    router.route("/v1/*").handler(new VerificationHandler(webClient, v1VerificationCB, "/v1/ip", false));
+    router.route("/v1/*")
+        .handler(new VerificationHandler(webClient, v1VerificationCB, "/v1/ip", verifyHost, verifyPort, false));
 
     // V3 Middlewares: Auth verification calling /v3/ip
-    router.route("/v3/*").handler(new VerificationHandler(webClient, v3VerificationCB, "/v3/ip", true));
+    router.route("/v3/*")
+        .handler(new VerificationHandler(webClient, v3VerificationCB, "/v3/ip", verifyHost, verifyPort, true));
 
     // JWT Auth Handler for protected routes
     JwtAuthHandler jwtAuthHandler = new JwtAuthHandler(vertx, config());

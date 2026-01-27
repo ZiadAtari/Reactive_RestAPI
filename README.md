@@ -8,9 +8,9 @@ The system is modularized into specialized Verticles, communicating strictly via
 
 - **[AppLauncher](src/main/java/ziadatari/ReactiveAPI/main/AppLauncher.java)**: Custom entry point that configures Micrometer metrics before starting Vert.x.
 - **[MainVerticle](src/main/java/ziadatari/ReactiveAPI/main/MainVerticle.java)**: Bootstraps the application and orchestrates verticle deployment.
-- **[HttpVerticle](src/main/java/ziadatari/ReactiveAPI/web/HttpVerticle.java)**: Manages the HTTP server, routing, and connection pooling.
-- **[AuthVerticle](src/main/java/ziadatari/ReactiveAPI/auth/AuthVerticle.java)**: Handles RS256 JWT issuance and verification.
-- **[EmployeeVerticle](src/main/java/ziadatari/ReactiveAPI/repository/EmployeeVerticle.java)**: Manages data persistence and employs circuit breakers.
+- [HttpVerticle](src/main/java/ziadatari/ReactiveAPI/web/HttpVerticle.java): Manages the HTTP server, routing, and **isolated fault tolerance** via multiple circuit breakers.
+- [AuthVerticle](src/main/java/ziadatari/ReactiveAPI/auth/AuthVerticle.java): Handles RS256 JWT issuance and verification, protecting the event loop with **non-blocking signing**.
+- [EmployeeVerticle](src/main/java/ziadatari/ReactiveAPI/repository/EmployeeVerticle.java): Manages data persistence and employs database-level circuit breakers.
 - **[UserVerticle](src/main/java/ziadatari/ReactiveAPI/repository/UserVerticle.java)**: Handles user credentials and authentication logic.
 
 For detailed system documentation, please refer to the [Documentation/Systems](Documentation/Systems) directory:
@@ -27,15 +27,20 @@ For detailed system documentation, please refer to the [Documentation/Systems](D
 - **Java 17+**
 - **Maven**
 - **MySQL Database**
+- **Docker & Docker Compose** (for Prometheus & AlertManager)
 
 ### Environment Setup
-The application is configured via environment variables. For local development, defaults are provided.
+The application is configured via environment variables. For local development, defaults are provided. In production (Docker), use `*_FILE` variables to point to mounted secrets.
 
 | Variable | Description | Default |
 | :--- | :--- | :--- |
 | `DB_PASSWORD` | MySQL Connection Password | `secret` |
-| `RSA_PRIVATE_KEY` | PEM encoded Private Key for signing | *(Insecure Dev Key)* |
-| `RSA_PUBLIC_KEY` | PEM encoded Public Key for verification | *(Insecure Dev Key)* |
+| `DB_PASSWORD_FILE` | Path to password file (Docker Secret) | - |
+| `RSA_PRIVATE_KEY` | PEM encoded Private Key | *(Insecure Dev Key)* |
+| `RSA_PRIVATE_KEY_FILE` | Path to Private Key file (Docker Secret) | - |
+| `DB_HOST` | Database Hostname | `localhost` |
+| `DB_PORT` | Database Port | `3306` |
+| `VERIFICATION_HOST` | Demo API Hostname | `localhost` |
 
 ### Running the Application
 
@@ -54,9 +59,15 @@ java -jar target/reactive-rest-api-1.0.0-SNAPSHOT-fat.jar
 ```
 The server will start on `http://localhost:8888`.
 
-#### Option 3: Docker
-mvn clean package
-java -jar target/ReactiveAPI-1.0.0-SNAPSHOT-fat.jar
+#### Option 3: Docker (Production / Full Stack)
+Run the entire stack (App, MySQL, Demo API) using Docker Compose.
+```bash
+docker-compose up -d --build
+```
+This will start:
+- **Reactive API**: `http://localhost:8888`
+- **MySQL**: `localhost:3307` (External), `3306` (Internal)
+- **Demo API**: `http://localhost:8081` (External), `8080` (Internal)
 
 ## API Usage
 
@@ -149,13 +160,20 @@ curl -v http://localhost:8888/health/live
 ```
 
 ### Monitoring & Metrics
-#### 8. Prometheus Metrics
+#### 8. Prometheus & Alerting
 **GET** `/metrics`
-Exposes application telemetry in Prometheus format, including HTTP summaries, login success/failure counters, and circuit breaker status.
-```bash
-curl http://localhost:8888/metrics
-```
-See [Metric.md](Documentation/Systems/Metric.md) for a full reference of available metrics.
+Exposes application telemetry in Prometheus format. The system is configured for **Server-Side Histograms**, enabling accurate P95/P99 latency tracking.
+
+**Stack:**
+- **Prometheus** (Port 9090): Data collection and graphing.
+- **AlertManager** (Port 9093): Proactive alerting on latency, error rates, and instance health.
+
+See [Metric.md](Documentation/Systems/Metric.md) for a full reference and [ExpressionsList.md](ExpressionsList.md) for PromQL queries.
+
+### Resilience Architecture
+The application uses a **Two-Tier Resilience Strategy**:
+1.  **Isolated Web Breakers**: Three dedicated `CustomCircuitBreakers` (`auth-login`, `v1-verify`, `v3-verify`) isolate failure domains in the web layer.
+2.  **Worker Pool Offloading**: Heavy CPU tasks (RSA signing) and blocking IO (BCrypt, DB) are strictly offloaded to worker threads to keep the **Event Loop** responsive.
 
 ## Project Structure
 | Package | Description |
@@ -170,9 +188,12 @@ See [Metric.md](Documentation/Systems/Metric.md) for a full reference of availab
 
 ## Changelog
 
-#### V4: Production Grade Features
-* **v4.1.0** Prometheus Metrics & Monitoring added
-* **v4.0.0** Health API checks added
+#### V4: Observability & Resilience
+* **v4.4.0** Containerization, Docker Secrets, and Full-Stack Orchestration.
+* **v4.3.0** Failure Domain Isolation & Event Loop Protection added (Isolated Circuit Breakers).
+* **v4.2.0** Native Metrics Refinement & AlertManager integration (Server-side Histograms).
+* **v4.1.0** Prometheus Metrics & Monitoring added.
+* **v4.0.0** Health API checks added.
 
 #### V3: Authentication
 * **v3.4.0** JSON Schema Validation & Batch Updates added

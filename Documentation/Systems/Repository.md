@@ -9,9 +9,11 @@ The Repository system manages data persistence and business logic orchestration 
 - **Technology**: Vert.x MySQL Client (Reactive).
 - **Key Features**:
     - Uses a `Pool` for asynchronous connection management.
+    - **Configuration**: Dynamic connection to `DB_HOST` and `DB_PORT` (Default: `localhost:3306`).
     - Prepared queries for SQL injection prevention.
     - Soft-delete implementation (marking records as inactive).
     - Mapping of SQL `RowSet` to `EmployeeDTO`.
+    - **Initialization**: Database schema is automatically seeded via `init.sql` on container startup.
 
 ### [EmployeeVerticle](file:///c:/Users/zatari/Desktop/Projects/Reactive_RestAPI/src/main/java/ziadatari/ReactiveAPI/repository/EmployeeVerticle.java)
 - **Purpose**: Acts as a worker verticle that isolates data access from the web layer.

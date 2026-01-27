@@ -33,6 +33,12 @@ The system employs a **Dual-Token Strategy**:
     1. Retrieves `RSA_PRIVATE_KEY` and `RSA_PUBLIC_KEY` from environment.
     2. Deploys `AuthVerticle` (Private Key) for signing.
     3. Deploys `HttpVerticle` (Public Key) for local verification.
+    
+### Secure Key Management (v4.4 Update)
+To support containerized environments (Docker Swarm/Kubernetes), keys are loaded with a **File-First Precedence**:
+1. Checks for `RSA_PRIVATE_KEY_FILE`. If present, reads content from the mounted secret.
+2. Falls back to `RSA_PRIVATE_KEY` environment variable (Legacy/Dev).
+This ensures keys are never exposed as plain-text environment variables in production.
 
 ## Authentication Flows
 

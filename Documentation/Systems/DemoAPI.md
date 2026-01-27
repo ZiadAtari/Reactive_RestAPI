@@ -40,4 +40,5 @@ The [VerificationHandler](file:///c:/Users/zatari/Desktop/Projects/Reactive_Rest
 ### Resilience Patterns
 - **Timeouts**: The Reactive API sets a strict execution timeout.
 - **Circuit Breaking**: Calls are wrapped in a `CustomCircuitBreaker`.
+- **Service Discovery**: The API connects to the Demo service via a configurable host/port (Default: `demo-api:8080` in Docker, `localhost:8081` locally).
 - **Auth Bridging**: The handler requests tokens via the **Event Bus** (`auth.token.get`) when accessing `V3` routes, ensuring decoupled authenticated communication.

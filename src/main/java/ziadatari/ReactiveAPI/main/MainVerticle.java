@@ -25,15 +25,22 @@ public class MainVerticle extends AbstractVerticle {
   public void start(Promise<Void> startPromise) {
 
     // 1. Database Configuration
-    String dbPassword = System.getenv("DB_PASSWORD");
+    String dbHost = System.getenv("DB_HOST");
+    if (dbHost == null || dbHost.isEmpty())
+      dbHost = "localhost";
+
+    String dbPortStr = System.getenv("DB_PORT");
+    int dbPort = (dbPortStr != null && !dbPortStr.isEmpty()) ? Integer.parseInt(dbPortStr) : 3306;
+
+    String dbPassword = loadSecret("DB_PASSWORD");
     if (dbPassword == null || dbPassword.isEmpty()) {
       logger.warn("DB_PASSWORD environment variable is not set. Using default.");
       dbPassword = "Zatari4321";
     }
 
     JsonObject dbconfig = new JsonObject()
-        .put("host", "localhost")
-        .put("port", 3306)
+        .put("host", dbHost)
+        .put("port", dbPort)
         .put("database", "payroll_db")
         .put("user", "root")
         .put("password", dbPassword);
@@ -41,13 +48,15 @@ public class MainVerticle extends AbstractVerticle {
     // 2. App Configuration
     JsonObject appConfig = new JsonObject()
         .put("http.port", 8888)
-        .put("url", "http://localhost:8888")
+        .put("url", System.getenv().getOrDefault("APP_URL", "http://localhost:8888"))
+        .put("verification.host", System.getenv().getOrDefault("VERIFICATION_HOST", "localhost"))
+        .put("verification.port", Integer.parseInt(System.getenv().getOrDefault("VERIFICATION_PORT", "8080")))
         .put("db", dbconfig);
 
     DeploymentOptions dbOptions = new DeploymentOptions().setConfig(appConfig);
 
     // 3. Auth Configuration (RSA Private Key)
-    String privateKey = System.getenv("RSA_PRIVATE_KEY");
+    String privateKey = loadSecret("RSA_PRIVATE_KEY");
     if (privateKey == null || privateKey.isBlank()) {
       logger.warn("RSA_PRIVATE_KEY environment variable is not set. Using INSECURE default for development.");
       privateKey = "-----BEGIN PRIVATE KEY-----\n" +
@@ -84,7 +93,7 @@ public class MainVerticle extends AbstractVerticle {
         .setConfig(new JsonObject().put("rsa_private_key", privateKey));
 
     // 3.1 Auth Configuration (RSA Public Key for Validation)
-    String publicKey = System.getenv("RSA_PUBLIC_KEY");
+    String publicKey = loadSecret("RSA_PUBLIC_KEY");
     if (publicKey == null || publicKey.isBlank()) {
       logger.warn("RSA_PUBLIC_KEY environment variable is not set. Using INSECURE default for development.");
       publicKey = "-----BEGIN PUBLIC KEY-----\n" +
@@ -126,5 +135,30 @@ public class MainVerticle extends AbstractVerticle {
           logger.error("CRITICAL: Failed to deploy verticles", err);
           startPromise.fail(err);
         });
+  }
+
+  /**
+   * Helper to load secrets with precedence:
+   * 1. File path provided in {KEY}_FILE environment variable.
+   * 2. Direct value in {KEY} environment variable.
+   */
+  private String loadSecret(String key) {
+    // 1. Check for file strategy first (Docker/K8s standard)
+    String fileEnvVar = key + "_FILE";
+    String filePath = System.getenv(fileEnvVar);
+
+    if (filePath != null && !filePath.isEmpty()) {
+      try {
+        logger.info("Loading secret for {} from file: {}", key, filePath);
+        return java.nio.file.Files.readString(java.nio.file.Path.of(filePath)).trim();
+      } catch (Exception e) {
+        logger.error("Failed to read secret file for {}: {}", key, filePath, e);
+        // Fallback to standard env var if file read fails, or return null to let caller
+        // handle
+      }
+    }
+
+    // 2. Fallback to standard environment variable
+    return System.getenv(key);
   }
 }

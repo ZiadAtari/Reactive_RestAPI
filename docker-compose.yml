@@ -1,0 +1,63 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    ports:
+      - "8888:8888"
+    environment:
+      - DB_HOST=mysql
+      - DB_PORT=3306
+      - DB_USER=root
+      - DB_DATABASE=payroll_db
+      - DB_PASSWORD_FILE=/run/secrets/db_password
+      - RSA_PRIVATE_KEY_FILE=/run/secrets/rsa_private_key
+      - RSA_PUBLIC_KEY_FILE=/run/secrets/rsa_public_key
+      - VERIFICATION_HOST=demo-api
+      - VERIFICATION_PORT=8080
+    secrets:
+      - db_password
+      - rsa_private_key
+      - rsa_public_key
+    depends_on:
+      mysql:
+        condition: service_healthy
+      demo-api:
+        condition: service_started
+    deploy:
+      restart_policy:
+        condition: on-failure
+
+  demo-api:
+    build: ./demo
+    ports:
+      - "8081:8080"
+    secrets:
+      - rsa_public_key
+    environment:
+      - RSA_PUBLIC_KEY_FILE=/run/secrets/rsa_public_key
+
+  mysql:
+    image: mysql:8.0
+    environment:
+      - MYSQL_ROOT_PASSWORD_FILE=/run/secrets/db_password
+      - MYSQL_DATABASE=payroll_db
+    secrets:
+      - db_password
+    ports:
+      - "3307:3306"
+    volumes:
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+secrets:
+  db_password:
+    file: ./secrets/db_password.txt
+  rsa_private_key:
+    file: ./secrets/private_key.pem
+  rsa_public_key:
+    file: ./secrets/public_key.pem
