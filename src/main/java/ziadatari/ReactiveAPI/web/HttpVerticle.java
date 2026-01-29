@@ -4,22 +4,19 @@ import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Promise;
 import io.vertx.ext.web.Router;
 import io.vertx.ext.web.handler.BodyHandler;
+import io.vertx.ext.web.handler.StaticHandler;
 import io.vertx.ext.web.client.WebClient;
+import io.vertx.ext.web.client.WebClientOptions;
+import io.vertx.ext.web.openapi.RouterBuilder;
+import io.vertx.micrometer.PrometheusScrapingHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import ziadatari.ReactiveAPI.auth.RateLimitHandler;
 import ziadatari.ReactiveAPI.auth.VerificationHandler;
 
-import io.vertx.ext.web.client.WebClientOptions;
-import io.vertx.ext.healthchecks.HealthCheckHandler;
-
-import io.vertx.micrometer.PrometheusScrapingHandler;
-
 /**
  * Verticle responsible for running the HTTP server.
- * It sets up the web router, registers middleware (Rate Limiting, IP
- * Verification),
- * and defines the API endpoints.
+ * Uses OpenAPI 3.0 RouterBuilder for contract-driven routing (v4.5 Update).
  */
 public class HttpVerticle extends AbstractVerticle {
 
@@ -30,8 +27,7 @@ public class HttpVerticle extends AbstractVerticle {
   }
 
   /**
-   * Starts the HTTP server.
-   * Configures the routing logic and wires dependencies like the WebClient.
+   * Starts the HTTP server using OpenAPI RouterBuilder.
    *
    * @param startPromise a promise to signal success or failure of server startup
    */
@@ -39,97 +35,116 @@ public class HttpVerticle extends AbstractVerticle {
   public void start(Promise<Void> startPromise) {
 
     // --- WEB CLIENT ---
-    // Shared client for making external HTTP calls (e.g., verification service)
     WebClientOptions options = new WebClientOptions()
         .setMaxPoolSize(100)
         .setConnectTimeout(2000)
         .setIdleTimeout(10);
     WebClient webClient = WebClient.create(vertx, options);
 
-    // --- CONTROLLER ---
+    // --- CONTROLLERS ---
     EmployeeController controller = new EmployeeController(vertx);
-    // Initialize Circuit Breakers first
-    // 1. Login Circuit Breaker (Protecting Auth Pipeline)
-    // Timeout: 1000ms (BCrypt is slow), Reset: 2000ms, Failures: 5
     CustomCircuitBreaker loginCB = new CustomCircuitBreaker(vertx, "auth-login", 1000, 2000, 5);
     AuthController authController = new AuthController(vertx, loginCB);
 
-    // --- ROUTER & MIDDLEWARE ---
-    Router router = Router.router(vertx);
-
-    // 1. BodyHandler: Essential for reading JSON bodies from incoming requests.
-    router.route().handler(BodyHandler.create());
-
-    // --- METRICS ---
-    router.route("/metrics").handler(PrometheusScrapingHandler.create());
-
-    // --- HEALTH CHECKS ---
-    HealthCheckHandler healthCheckHandler = HealthCheckHandler.create(vertx);
-    healthCheckHandler.register("server-live", promise -> promise.complete(io.vertx.ext.healthchecks.Status.OK()));
-    router.get("/health/live").handler(healthCheckHandler);
-
-    // 2. RateLimitHandler: Limits requests per IP (100 reqs per 1000ms window).
-    router.route().handler(new RateLimitHandler(vertx, 100, 1000));
-
-    // 3. Routing and Middleware setup
-    // Verification Circuit Breakers (Split for V1 and V3 isolation)
+    // --- CIRCUIT BREAKERS FOR VERIFICATION ---
     CustomCircuitBreaker v1VerificationCB = new CustomCircuitBreaker(vertx, "v1-verify", 500, 800, 5);
     CustomCircuitBreaker v3VerificationCB = new CustomCircuitBreaker(vertx, "v3-verify", 500, 800, 5);
-
-    // V3 Middlewares: Auth verification calling /v3/ip
     String verifyHost = config().getString("verification.host", "localhost");
     int verifyPort = config().getInteger("verification.port", 8080);
 
-    // V1 Middlewares: No Auth verification calling /v1/ip
-    router.route("/v1/*")
-        .handler(new VerificationHandler(webClient, v1VerificationCB, "/v1/ip", verifyHost, verifyPort, false));
-
-    // V3 Middlewares: Auth verification calling /v3/ip
-    router.route("/v3/*")
-        .handler(new VerificationHandler(webClient, v3VerificationCB, "/v3/ip", verifyHost, verifyPort, true));
-
-    // JWT Auth Handler for protected routes
+    // --- JWT AUTH HANDLER ---
     JwtAuthHandler jwtAuthHandler = new JwtAuthHandler(vertx, config());
 
-    // --- API ROUTES ---
+    // --- OPENAPI ROUTER BUILDER ---
+    RouterBuilder.create(vertx, "openapi.yaml")
+        .onSuccess(routerBuilder -> {
+          logger.info("OpenAPI specification loaded successfully");
 
-    // Login
-    router.post("/login").handler(authController::login);
+          // --- OPERATION HANDLERS ---
+          // Auth (no security required)
+          routerBuilder.operation("login").handler(authController::login);
 
-    // V3 (Authenticated)
-    router.get("/v3/employees").handler(controller::getAll);
-    // Protected Mutations
-    router.post("/v3/employees").handler(jwtAuthHandler).handler(ctx -> {
-      logger.debug("Executing POST /v3/employees (Auth passed)");
-      controller.create(ctx);
-    });
-    router.put("/v3/employees/:id").handler(jwtAuthHandler).handler(ctx -> {
-      logger.debug("Executing PUT /v3/employees (Auth passed)");
-      controller.update(ctx);
-    });
-    router.delete("/v3/employees/:id").handler(jwtAuthHandler).handler(ctx -> {
-      logger.debug("Executing DELETE /v3/employees (Auth passed)");
-      controller.delete(ctx);
-    });
+          // V1 (Legacy - no security required)
+          routerBuilder.operation("getAllEmployeesV1").handler(controller::getAll);
+          routerBuilder.operation("createEmployeeV1").handler(controller::create);
+          routerBuilder.operation("updateEmployeeV1").handler(controller::update);
+          routerBuilder.operation("deleteEmployeeV1").handler(controller::delete);
 
-    // V1 (Legacy)
-    router.get("/v1/employees").handler(controller::getAll);
-    router.post("/v1/employees").handler(controller::create);
-    router.put("/v1/employees/:id").handler(controller::update);
-    router.delete("/v1/employees/:id").handler(controller::delete);
+          // V3 (Authenticated - JWT required)
+          // Note: We apply jwtAuthHandler before the controller handler for each
+          // protected operation
+          routerBuilder.operation("getAllEmployeesV3").handler(controller::getAll);
+          routerBuilder.operation("createEmployeeV3").handler(jwtAuthHandler).handler(controller::create);
+          routerBuilder.operation("updateEmployeeV3").handler(jwtAuthHandler).handler(controller::update);
+          routerBuilder.operation("deleteEmployeeV3").handler(jwtAuthHandler).handler(controller::delete);
 
-    // Create and start the HTTP server
-    vertx.createHttpServer()
-        .requestHandler(router)
-        .listen(config().getInteger("http.port"), http -> {
-          if (http.succeeded()) {
-            logger.info("HTTP server started on port {}", http.result().actualPort());
-            startPromise.complete();
-          } else {
-            logger.error("CRITICAL: HTTP server failed to start", http.cause());
-            startPromise.fail(http.cause());
-          }
+          // Health (defined in spec but simple handler)
+          routerBuilder.operation("healthLive").handler(ctx -> {
+            ctx.response()
+                .putHeader("Content-Type", "application/json")
+                .end("{\"outcome\": \"UP\"}");
+          });
+
+          // Metrics (operationId from OpenAPI spec)
+          routerBuilder.operation("getMetrics").handler(PrometheusScrapingHandler.create());
+
+          // --- BUILD OPENAPI ROUTER ---
+          Router apiRouter = routerBuilder.createRouter();
+
+          // --- MAIN ROUTER (for global middleware and infrastructure) ---
+          Router mainRouter = Router.router(vertx);
+
+          // 1. BodyHandler: Essential for reading JSON bodies
+          mainRouter.route().handler(BodyHandler.create());
+
+          // 2. Swagger UI Static Files (v4.6 Update)
+          // Redirect /swagger to /swagger/index.html
+          mainRouter.route("/swagger").handler(ctx -> {
+            ctx.response()
+                .setStatusCode(302)
+                .putHeader("Location", "/swagger/index.html")
+                .end();
+          });
+          // Serve static files from classpath
+          mainRouter.route("/swagger/*").handler(
+              StaticHandler.create("webroot/swagger")
+                  .setCachingEnabled(false));
+
+          // 3. Serve OpenAPI spec for Swagger UI
+          mainRouter.route("/openapi.yaml").handler(ctx -> {
+            ctx.response()
+                .putHeader("Content-Type", "application/yaml")
+                .sendFile("openapi.yaml");
+          });
+
+          // 4. RateLimitHandler: Global rate limiting
+          mainRouter.route().handler(new RateLimitHandler(vertx, 100, 1000));
+
+          // 5. Verification Handlers for V1 and V3 paths
+          mainRouter.route("/v1/*")
+              .handler(new VerificationHandler(webClient, v1VerificationCB, "/v1/ip", verifyHost, verifyPort, false));
+          mainRouter.route("/v3/*")
+              .handler(new VerificationHandler(webClient, v3VerificationCB, "/v3/ip", verifyHost, verifyPort, true));
+
+          // 6. Mount the OpenAPI Router
+          mainRouter.route("/*").subRouter(apiRouter);
+
+          // --- START HTTP SERVER ---
+          vertx.createHttpServer()
+              .requestHandler(mainRouter)
+              .listen(config().getInteger("http.port"), http -> {
+                if (http.succeeded()) {
+                  logger.info("HTTP server started on port {} (OpenAPI mode)", http.result().actualPort());
+                  startPromise.complete();
+                } else {
+                  logger.error("CRITICAL: HTTP server failed to start", http.cause());
+                  startPromise.fail(http.cause());
+                }
+              });
+        })
+        .onFailure(err -> {
+          logger.error("CRITICAL: Failed to load OpenAPI specification", err);
+          startPromise.fail(err);
         });
-
   }
 }

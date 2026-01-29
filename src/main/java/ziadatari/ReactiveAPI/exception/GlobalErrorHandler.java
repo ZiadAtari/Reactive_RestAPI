@@ -35,7 +35,15 @@ public class GlobalErrorHandler {
       reply(ctx, ErrorCode.INVALID_JSON_FORMAT);
     }
 
-    // Case 3: Event Bus Failures (ReplyException)
+    // Case 3: OpenAPI Validation Failures (v4.5 Update)
+    // RouterBuilder throws BadRequestException for schema validation errors
+    else if (cause instanceof io.vertx.ext.web.validation.BadRequestException) {
+      io.vertx.ext.web.validation.BadRequestException bre = (io.vertx.ext.web.validation.BadRequestException) cause;
+      logger.warn("OpenAPI Validation Failed: {}", bre.getMessage());
+      reply(ctx, ErrorCode.VALIDATION_ERROR, bre.getMessage());
+    }
+
+    // Case 4: Event Bus Failures (ReplyException)
     else if (cause instanceof io.vertx.core.eventbus.ReplyException) {
       io.vertx.core.eventbus.ReplyException re = (io.vertx.core.eventbus.ReplyException) cause;
       int statusCode = re.failureCode();
@@ -47,7 +55,7 @@ public class GlobalErrorHandler {
       }
     }
 
-    // Case 4: Unexpected system-level failures
+    // Case 5: Unexpected system-level failures
     else {
       logger.error("CRITICAL FAILURE", cause);
       reply(ctx, ErrorCode.INTERNAL_SERVER_ERROR);

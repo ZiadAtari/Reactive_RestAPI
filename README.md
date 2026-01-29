@@ -3,6 +3,8 @@
 ## Overview
 A high-performance, reactive microservice built with **Eclipse Vert.x**. This application leverages a non-blocking, event-driven architecture to handle high-concurrency workloads efficiently, utilizing specialized verticles for web, authentication, and data persistence.
 
+**Now featuring OpenAPI 3.0 with interactive Swagger UI documentation at `/swagger/`.**
+
 ## Architecture
 The system is modularized into specialized Verticles, communicating strictly via the Vert.x Event Bus.
 
@@ -66,8 +68,28 @@ docker-compose up -d --build
 ```
 This will start:
 - **Reactive API**: `http://localhost:8888`
+- **Swagger UI**: `http://localhost:8888/swagger/`
 - **MySQL**: `localhost:3307` (External), `3306` (Internal)
 - **Demo API**: `http://localhost:8081` (External), `8080` (Internal)
+
+## API Documentation
+
+### Swagger UI
+Interactive API documentation is available at:
+```
+http://localhost:8888/swagger/
+```
+Features:
+- Browse all 11 API endpoints
+- Try-it-out functionality
+- JWT authentication support via "Authorize" button
+- Request/Response schema visualization
+
+### OpenAPI Specification
+The raw OpenAPI 3.0 spec is available at:
+```
+http://localhost:8888/openapi.yaml
+```
 
 ## API Usage
 
@@ -189,6 +211,8 @@ The application uses a **Two-Tier Resilience Strategy**:
 ## Changelog
 
 #### V4: Observability & Resilience
+* **v4.6.0** Swagger UI integration at `/swagger/`.
+* **v4.5.0** OpenAPI 3.0 specification and contract-driven routing.
 * **v4.4.0** Containerization, Docker Secrets, and Full-Stack Orchestration.
 * **v4.3.0** Failure Domain Isolation & Event Loop Protection added (Isolated Circuit Breakers).
 * **v4.2.0** Native Metrics Refinement & AlertManager integration (Server-side Histograms).

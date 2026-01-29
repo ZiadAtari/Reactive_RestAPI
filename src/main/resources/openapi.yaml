@@ -1,0 +1,394 @@
+openapi: 3.0.3
+info:
+  title: Reactive API
+  description: A high-performance, non-blocking REST API built on Vert.x with RS256 JWT authentication.
+  version: "4.5"
+  contact:
+    name: Ziad Atari
+
+servers:
+  - url: http://localhost:8888
+    description: Local Development
+
+tags:
+  - name: Auth
+    description: Authentication endpoints
+  - name: V1
+    description: Legacy unauthenticated employee endpoints
+  - name: V3
+    description: Authenticated employee endpoints
+
+paths:
+  /login:
+    post:
+      operationId: login
+      tags:
+        - Auth
+      summary: Authenticate user and receive JWT token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '400':
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+  /v1/employees:
+    get:
+      operationId: getAllEmployeesV1
+      tags:
+        - V1
+      summary: Get all employees (Legacy)
+      responses:
+        '200':
+          description: List of employees
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Employee'
+    post:
+      operationId: createEmployeeV1
+      tags:
+        - V1
+      summary: Create a new employee (Legacy)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/EmployeeInput'
+                - $ref: '#/components/schemas/EmployeeBatchInput'
+      responses:
+        '201':
+          description: Employee created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Employee'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+  /v1/employees/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Employee UUID
+    put:
+      operationId: updateEmployeeV1
+      tags:
+        - V1
+      summary: Update an employee (Legacy)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmployeeInput'
+      responses:
+        '200':
+          description: Employee updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Employee'
+        '404':
+          description: Employee not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+    delete:
+      operationId: deleteEmployeeV1
+      tags:
+        - V1
+      summary: Delete an employee (Legacy)
+      responses:
+        '204':
+          description: Employee deleted
+        '404':
+          description: Employee not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+  /v3/employees:
+    get:
+      operationId: getAllEmployeesV3
+      tags:
+        - V3
+      summary: Get all employees (Authenticated)
+      # Note: Auth is enforced by JwtAuthHandler in HttpVerticle
+      responses:
+        '200':
+          description: List of employees
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Employee'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+    post:
+      operationId: createEmployeeV3
+      tags:
+        - V3
+      summary: Create a new employee (Authenticated)
+      # Note: Auth is enforced by JwtAuthHandler in HttpVerticle
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - $ref: '#/components/schemas/EmployeeInput'
+                - $ref: '#/components/schemas/EmployeeBatchInput'
+      responses:
+        '201':
+          description: Employee created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Employee'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+  /v3/employees/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Employee UUID
+    put:
+      operationId: updateEmployeeV3
+      tags:
+        - V3
+      summary: Update an employee (Authenticated)
+      # Note: Auth is enforced by JwtAuthHandler in HttpVerticle
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmployeeInput'
+      responses:
+        '200':
+          description: Employee updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Employee'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Employee not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+    delete:
+      operationId: deleteEmployeeV3
+      tags:
+        - V3
+      summary: Delete an employee (Authenticated)
+      # Note: Auth is enforced by JwtAuthHandler in HttpVerticle
+      responses:
+        '204':
+          description: Employee deleted
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: Employee not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+
+  /health/live:
+    get:
+      operationId: healthLive
+      tags:
+        - Infrastructure
+      summary: Liveness probe
+      responses:
+        '200':
+          description: Service is alive
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  outcome:
+                    type: string
+                    example: UP
+
+  /metrics:
+    get:
+      operationId: getMetrics
+      tags:
+        - Infrastructure
+      summary: Prometheus metrics endpoint
+      description: Returns application metrics in Prometheus text format for scraping.
+      responses:
+        '200':
+          description: Prometheus metrics
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: |
+                  # HELP jvm_memory_used_bytes JVM memory used
+                  # TYPE jvm_memory_used_bytes gauge
+                  jvm_memory_used_bytes{area="heap"} 1.234567E8
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: RS256 JWT token obtained from POST /login
+
+  schemas:
+    LoginRequest:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+          minLength: 1
+          description: User's login name
+        password:
+          type: string
+          minLength: 1
+          description: User's password
+
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: RS256 JWT token
+
+    EmployeeInput:
+      type: object
+      required:
+        - name
+        - department
+        - salary
+      properties:
+        name:
+          type: string
+          minLength: 1
+          description: Full name of the employee
+        department:
+          type: string
+          minLength: 1
+          description: Department name
+        salary:
+          type: number
+          minimum: 0
+          description: Annual salary
+        active:
+          type: boolean
+          default: true
+          description: Employment status
+
+    EmployeeBatchInput:
+      type: array
+      items:
+        $ref: '#/components/schemas/EmployeeInput'
+      minItems: 1
+      maxItems: 100
+
+    Employee:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier
+        name:
+          type: string
+        department:
+          type: string
+        salary:
+          type: number
+        active:
+          type: boolean
+        lastModifiedBy:
+          type: string
+          description: Username of last modifier
+        lastModifiedAt:
+          type: string
+          format: date-time
+          description: ISO-8601 timestamp
+
+    ApiError:
+      type: object
+      properties:
+        code:
+          type: string
+          description: Internal error code (e.g., EMP_001)
+        message:
+          type: string
+          description: Human-readable error message
+        timestamp:
+          type: string
+          format: date-time
+          description: ISO-8601 timestamp of the error

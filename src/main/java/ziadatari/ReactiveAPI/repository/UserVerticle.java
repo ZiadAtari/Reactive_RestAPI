@@ -105,7 +105,7 @@ public class UserVerticle extends AbstractVerticle {
                         } else {
                             throw new ServiceException(ErrorCode.INVALID_CREDENTIALS);
                         }
-                    }, false); // false = not ordered (concurrent validations allowed)
+                    }, true); // false = not ordered (concurrent validations allowed)
                 });
     }
 }

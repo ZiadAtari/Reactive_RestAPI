@@ -48,7 +48,8 @@ public class EmployeeController {
    * <p>
    * <b>3.4 Schema Update:</b> Now supports both Single JSON Object and Batch
    * JSON Array inputs.
-   * Performs "fail-fast" schema validation before processing.
+   * <b>v4.5 Update:</b> Schema validation is now handled by OpenAPI
+   * RouterBuilder.
    * </p>
    *
    * @param ctx the routing context
@@ -64,8 +65,7 @@ public class EmployeeController {
       if (bodyStr.startsWith("[")) {
         // --- BATCH CREATION ---
         JsonArray array = new JsonArray(bodyStr);
-        // Schema Validation (Fails Fast)
-        ziadatari.ReactiveAPI.util.SchemaValidator.validateEmployeeBatch(array);
+        // Note: Schema validation is now handled by OpenAPI RouterBuilder (v4.5)
 
         vertx.eventBus().<JsonArray>request("employees.create.batch", array)
             .onSuccess(msg -> {
@@ -77,8 +77,7 @@ public class EmployeeController {
       } else {
         // --- SINGLE CREATION ---
         JsonObject body = new JsonObject(bodyStr);
-        // Schema Validation (Fails Fast)
-        ziadatari.ReactiveAPI.util.SchemaValidator.validateEmployee(body);
+        // Note: Schema validation is now handled by OpenAPI RouterBuilder (v4.5)
 
         // Inject authenticated user for audit trail
         String user = "anonymous";
@@ -127,9 +126,7 @@ public class EmployeeController {
       if (body == null) {
         throw new ServiceException(ErrorCode.EMPTY_BODY);
       }
-
-      // Schema Validation (Fails Fast)
-      ziadatari.ReactiveAPI.util.SchemaValidator.validateEmployee(body);
+      // Note: Schema validation is now handled by OpenAPI RouterBuilder (v4.5)
 
       // Inject authenticated user for audit trail
       String user = "anonymous";

@@ -26,8 +26,7 @@ public class AuthController {
      * Handles user login requests (POST /login).
      * <p>
      * <b>Orchestration Flow:</b>
-     * 1. Validates schema (username/password presence) via
-     * {@link ziadatari.ReactiveAPI.util.SchemaValidator}.
+     * 1. Request body is pre-validated by OpenAPI RouterBuilder (v4.5 Update).
      * 2. Sends a message to {@code users.authenticate} (UserVerticle) to verify
      * credentials.
      * 3. Upon success, sends a message to {@code auth.token.issue} (AuthVerticle)
@@ -38,11 +37,9 @@ public class AuthController {
      * @param ctx the routing context
      */
     public void login(RoutingContext ctx) {
-        // Step 1: Parse and Validate Request
+        // Step 1: Parse Request (Validation handled by OpenAPI)
         try {
             JsonObject body = ctx.body().asJsonObject();
-            // Schema Validation (Fails fast)
-            ziadatari.ReactiveAPI.util.SchemaValidator.validateLogin(body);
 
             LoginRequestDTO loginRequest = new LoginRequestDTO(body);
 

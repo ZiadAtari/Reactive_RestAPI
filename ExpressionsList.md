@@ -1,8 +1,8 @@
-# v4.2 Metrics Catalog & Usage Guide
+# Metrics Catalog & Usage Guide
 
 This document organizes the available Prometheus metrics and provides instructions on how to query, filter, and aggregate them.
 
-## 0. Query Fundamentals (Must Read)
+## 0. Query Fundamentals
 
 ### A. Units & Scaling
 *   **Time**: All `_seconds` metrics are in **Seconds**.
@@ -24,7 +24,7 @@ When running multiple instances (or just to remove labels), use `sum` and `rate`
 
 ---
 
-## 1. High Priority (Golden Signals)
+## 1. High Priority 
 **Focus**: Operational Health & Business Criticality.
 
 | Metric | Type | Labels | Description |

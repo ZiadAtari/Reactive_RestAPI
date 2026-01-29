@@ -68,6 +68,10 @@
       <groupId>io.vertx</groupId>
       <artifactId>vertx-health-check</artifactId>
     </dependency>
+    <dependency>
+      <groupId>io.vertx</groupId>
+      <artifactId>vertx-web-openapi</artifactId>
+    </dependency>
 
     <!-- Logging -->
     <dependency>
